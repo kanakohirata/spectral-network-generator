@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  python:
+    container_name: python-sng
+    build: .
+    image: python-sng
+    volumes:
+      - ../spectral_network_generator:/spectral_network_generator
+    working_dir: /spectral_network_generator
+    command: /bin/bash
+    tty: true

@@ -1,0 +1,9 @@
+dask
+h5py
+numexpr
+networkx==2.5.1
+numpy
+matchms==0.17.0
+pandas
+rdkit
+scipy==1.6.2
