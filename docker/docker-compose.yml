@@ -2,7 +2,6 @@ version: '3'
 
 services:
   python:
-    container_name: python-sng
     build: .
     image: python-sng
     volumes:
