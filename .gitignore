@@ -1,0 +1,7 @@
+__pycache__/
+.idea/
+serialized_spectra/
+metacyc.h5
+metacyc_for_filter.h5
+score.h5
+spectrum_metadata.h5
