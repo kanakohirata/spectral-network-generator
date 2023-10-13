@@ -70,6 +70,8 @@ def filter_reference_spectra(config_obj, _logger=None):
     else:
         logger = LOGGER
 
+    LOGGER.info('Filter reference spectra')
+
     def _avoid_filter(a):
         if a in config_obj.list_filename_avoid_filter:
             return True
@@ -185,83 +187,87 @@ def filter_reference_spectra(config_obj, _logger=None):
 
                 unfiltered_ref_idx_arr = ref_arr[mask_avoid_filter]['index']
                 ref_arr = ref_arr[np.invert(mask_avoid_filter)]
-                _mask_all_true = np.array([True] * ref_arr.shape[0])
 
-                # author ---------------------------------------------------
-                mask_author = _mask_all_true
-                if config_obj.list_author:
-                    _filter = np.frompyfunc(_author_filter, 1, 1)
-                    mask_author = _filter(np.char.decode(ref_arr['author'].astype(np.bytes_), encoding='utf8'))
+                if not ref_arr.size:
+                    idx_arr = np.append(sample_idx_arr, unfiltered_ref_idx_arr)
+                else:
+                    _mask_all_true = np.array([True] * ref_arr.shape[0])
 
-                # name ---------------------------------------------------
-                # basically to remove PCs
-                mask_name = _mask_all_true
-                if config_obj.list_name_key_characters_to_remove:
-                    logger.debug(config_obj.list_name_key_characters_to_remove)
-                    _filter = np.frompyfunc(_key_character_filter, 1, 1)
-                    mask_name = _filter(np.char.decode(ref_arr['compound_name'].astype(np.bytes_), encoding='utf8'))
+                    # author ---------------------------------------------------
+                    mask_author = _mask_all_true
+                    if config_obj.list_author:
+                        _filter = np.frompyfunc(_author_filter, 1, 1)
+                        mask_author = _filter(np.char.decode(ref_arr['author'].astype(np.bytes_), encoding='utf8'))
 
-                # instrument type ---------------------------------------------------
-                mask_instrument_type = _mask_all_true
-                if config_obj.instrument_type:
-                    _filter = np.frompyfunc(_instrument_type_filter, 1, 1)
-                    mask_instrument_type = _filter(ref_arr['instrument_type'].astype(str))
+                    # name ---------------------------------------------------
+                    # basically to remove PCs
+                    mask_name = _mask_all_true
+                    if config_obj.list_name_key_characters_to_remove:
+                        logger.debug(config_obj.list_name_key_characters_to_remove)
+                        _filter = np.frompyfunc(_key_character_filter, 1, 1)
+                        mask_name = _filter(np.char.decode(ref_arr['compound_name'].astype(np.bytes_), encoding='utf8'))
 
-                # ionization mode ---------------------------------------------------
-                mask_ionization_mode = _mask_all_true
-                if config_obj.ionization:
-                    # if ionization mode is specified in config....   probably ESI
-                    _filter = np.frompyfunc(_ionization_filter, 2, 1)
-                    mask_ionization_mode = _filter(ref_arr['ionization_mode'].astype(str),
-                                                   ref_arr['instrument_type'].astype(str))
+                    # instrument type ---------------------------------------------------
+                    mask_instrument_type = _mask_all_true
+                    if config_obj.instrument_type:
+                        _filter = np.frompyfunc(_instrument_type_filter, 1, 1)
+                        mask_instrument_type = _filter(ref_arr['instrument_type'].astype(str))
 
-                    _ionization_mode_ref_arr = np.where(mask_ionization_mode,
-                                                        config_obj.ionization,
-                                                        ref_arr['ionization_mode'].astype(str))
+                    # ionization mode ---------------------------------------------------
+                    mask_ionization_mode = _mask_all_true
+                    if config_obj.ionization:
+                        # if ionization mode is specified in config....   probably ESI
+                        _filter = np.frompyfunc(_ionization_filter, 2, 1)
+                        mask_ionization_mode = _filter(ref_arr['ionization_mode'].astype(str),
+                                                       ref_arr['instrument_type'].astype(str))
 
-                    ref_arr['ionization_mode'] = _ionization_mode_ref_arr
+                        _ionization_mode_ref_arr = np.where(mask_ionization_mode,
+                                                            config_obj.ionization,
+                                                            ref_arr['ionization_mode'].astype(str))
 
-                # precursor ion type ---------------------------------------------------
-                # [M+H]+ , [M-H]-  etc.
-                mask_precursor_type = _mask_all_true
-                if config_obj.list_precursor_type:
-                    mask_precursor_type = np.isin(ref_arr['precursor_type'].astype(str), config_obj.list_precursor_type)
+                        ref_arr['ionization_mode'] = _ionization_mode_ref_arr
 
-                # fragmentation type ---------------------------------------------------
-                # you should detect like "low energy CID" with CID key pattern
-                mask_fragmentation_type = _mask_all_true
-                if config_obj.fragmentation_type:
-                    _filter = np.frompyfunc(_fragmentation_type_filter, 1, 1)
-                    mask_fragmentation_type = _filter(ref_arr['fragmentation_type'].astype(str))
+                    # precursor ion type ---------------------------------------------------
+                    # [M+H]+ , [M-H]-  etc.
+                    mask_precursor_type = _mask_all_true
+                    if config_obj.list_precursor_type:
+                        mask_precursor_type = np.isin(ref_arr['precursor_type'].astype(str), config_obj.list_precursor_type)
 
-                # minimum number of peaks ---------------------------------------------------
-                mask_min_number_of_peaks = _mask_all_true
-                if config_obj.min_number_of_peaks > 0:
-                    mask_min_number_of_peaks = ref_arr['number_of_peaks'] > config_obj.min_number_of_peaks
+                    # fragmentation type ---------------------------------------------------
+                    # you should detect like "low energy CID" with CID key pattern
+                    mask_fragmentation_type = _mask_all_true
+                    if config_obj.fragmentation_type:
+                        _filter = np.frompyfunc(_fragmentation_type_filter, 1, 1)
+                        mask_fragmentation_type = _filter(ref_arr['fragmentation_type'].astype(str))
 
-                # whether a record has precursor mass or not --------------------------------------------------
-                mask_precursor_mass_exists = _mask_all_true
-                if config_obj.remove_spec_wo_prec_mz:
-                    mask_precursor_mass_exists = ref_arr['precursor_mz'] > 0
+                    # minimum number of peaks ---------------------------------------------------
+                    mask_min_number_of_peaks = _mask_all_true
+                    if config_obj.min_number_of_peaks > 0:
+                        mask_min_number_of_peaks = ref_arr['number_of_peaks'] > config_obj.min_number_of_peaks
 
-                # compound filter --------------------------------------------------
-                mask_compound = _mask_all_true
-                if config_obj.list_filename_compound_dat_for_filter:
-                    mask_compound = np.isin(ref_arr['inchikey'].astype(str), metacyc_inchikeys)
+                    # whether a record has precursor mass or not --------------------------------------------------
+                    mask_precursor_mass_exists = _mask_all_true
+                    if config_obj.remove_spec_wo_prec_mz:
+                        mask_precursor_mass_exists = ref_arr['precursor_mz'] > 0
 
-                mask_all = (mask_author
-                            & mask_name
-                            & mask_instrument_type
-                            & mask_ionization_mode
-                            & mask_precursor_type
-                            & mask_fragmentation_type
-                            & mask_min_number_of_peaks
-                            & mask_precursor_mass_exists
-                            & mask_compound).astype(bool)
+                    # compound filter --------------------------------------------------
+                    mask_compound = _mask_all_true
+                    if config_obj.list_filename_compound_dat_for_filter:
+                        mask_compound = np.isin(ref_arr['inchikey'].astype(str), metacyc_inchikeys)
 
-                filtered_ref_idx_arr = ref_arr[mask_all]['index']
-                idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)
-                idx_arr = np.append(idx_arr, unfiltered_ref_idx_arr)
+                    mask_all = (mask_author
+                                & mask_name
+                                & mask_instrument_type
+                                & mask_ionization_mode
+                                & mask_precursor_type
+                                & mask_fragmentation_type
+                                & mask_min_number_of_peaks
+                                & mask_precursor_mass_exists
+                                & mask_compound).astype(bool)
+
+                    filtered_ref_idx_arr = ref_arr[mask_all]['index']
+                    idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)
+                    idx_arr = np.append(idx_arr, unfiltered_ref_idx_arr)
 
             idx_arr.sort()
             arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
@@ -277,7 +283,3 @@ def filter_reference_spectra(config_obj, _logger=None):
         h5['filtered/metadata'][:] = h5['filtered/_metadata'][:]
         del h5['filtered/_metadata']
         h5.flush()
-
-        logger.debug(mask_author)
-        logger.debug(mask_name)
-        logger.debug(mask_instrument_type)
