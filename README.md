@@ -11,28 +11,28 @@ The Spectral Network Generator calculate networks among sample spectra, between 
 Also, by inputting a compound table, you can add compound information (compound class, pathway) to the reference spectra, and use this to group or filter the reference spectra.
 
 ### Acceptable Spectrum Files
-You can input spectrum files in MSP, MGF, or JSON format.
+You can input spectrum files in **MSP**, **MG**F, or **JSON** format.
 
 
-- MSP: You can download an MSP file from the MassBank of North America repository at https://mona.fiehnlab.ucdavis.edu/downloads
-- MGF: You can download an MGF file from GNPS at https://gnps-external.ucsd.edu/gnpslibrary
-- JSON: You can download a JSON file from the MassBank of North America repository at https://mona.fiehnlab.ucdavis.edu/downloads and GNPS at https://gnps-external.ucsd.edu/gnpslibrary
+- **MSP**: You can download an MSP file from the MassBank of North America repository (MoNA) at https://mona.fiehnlab.ucdavis.edu/downloads
+- **MGF**: You can download an MGF file from GNPS at https://gnps-external.ucsd.edu/gnpslibrary
+- **JSON**: You can download a JSON file from the MoNA at https://mona.fiehnlab.ucdavis.edu/downloads and GNPS at https://gnps-external.ucsd.edu/gnpslibrary
 
 ### Acceptable Compound Tables
 You can input a tab-delimited (TSV) file.
 
 
-Required column: InChIKey
+**Required column: InChIKey**
 
 Acceptable columns:
-- CAS RN: CAS Registry Number
-- DBID: ID in the source database
-- InChI
-- MOLECULAR FORMULA
-- NAME
-- SUPERCLASS: Superclass is one of the hierarchical levels used to categorize chemical compounds in the ClassyFire (http://classyfire.wishartlab.com/) classification system.
-- CLASS: One hierarchical level below Superclass
-- SUBCLASS: One hierarchical level below Class
+- **CAS RN**: CAS Registry Number
+- **DBID**: ID in the source database
+- **InChI**
+- **MOLECULAR FORMULA**
+- **NAME**
+- **SUPERCLASS**: Superclass is one of the hierarchical levels used to categorize chemical compounds in the ClassyFire (http://classyfire.wishartlab.com/) classification system.
+- **CLASS**: One hierarchical level below Superclass
+- **SUBCLASS**: One hierarchical level below Class
 
 ## How to Use the Spectral Network Generator
 ### Installation of Docker and Downloading the GitHub Repository
@@ -41,7 +41,7 @@ Acceptable columns:
   https://docs.docker.com/engine/install/
 - Downloading the GitHub Repository
 
-  Click "Code" then "Download ZIP" in this page, and unzip it in any directory.
+  Click "**Code**" then "**Download ZIP**" [in this page](https://github.com/kanakohirata/spectral-network-generator/tree/release), and unzip it in any directory.
 
 ### Creating and accessing a Docker Container
 1. Open the command prompt, move it to the docker folder directly under the unzipped repository ("spectral-network-generator/docker").
@@ -64,7 +64,7 @@ Acceptable columns:
 
 ### Running the spectral-network-generator
 1. Prepare spectral data and a compound table.
-2. Edit the configuration file config.ini ("spectral-network-generator/docker/spectral_network_generator/config.ini") as necessary.
+2. Edit the configuration file **config.ini** ("spectral-network-generator/docker/spectral_network_generator/config.ini") as necessary.
 3. Execute ```python main.py```
 
 ### Stopping the Container
