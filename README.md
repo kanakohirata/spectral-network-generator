@@ -65,7 +65,7 @@ Acceptable columns:
 ### Running the spectral-network-generator
 1. Prepare spectral data and a compound table.
 2. Edit the configuration file config.ini ("spectral-network-generator/docker/spectral_network_generator/config.ini") as necessary.
-3. Execute '''python main.py'''
+3. Execute ```python main.py```
 
 ### Stopping the Container
 ```
