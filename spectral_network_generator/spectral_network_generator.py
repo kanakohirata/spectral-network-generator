@@ -98,21 +98,25 @@ def generate_spectral_network(config_obj, _logger=None):
     # ------------------------------------------------
     # Add external compound data to reference spectra
     # ------------------------------------------------
-    
-    read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
-                                                  parameters_to_open_file=dict(encoding='utf8', errors='replace'))
-    read_meta.convert_metacyc_pathways_dat_to_h5(config_obj.metacyc_pathway_dat_path, output_path='./metacyc.h5',
-                                                 parameters_to_open_file=dict(encoding='utf8', errors='replace'))
-    read_meta.assign_pathway_id_to_compound_in_h5('./metacyc.h5')
+    if config_obj.compound_table_paths:
+        add_classyfire_class(config_obj.compound_table_paths)
 
-    add_classyfire_class(config_obj.compound_table_paths)
+    if config_obj.metacyc_cmpd_dat_path:
+        read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
+                                                      parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+    if config_obj.metacyc_pathway_dat_path:
+        read_meta.convert_metacyc_pathways_dat_to_h5(config_obj.metacyc_pathway_dat_path, output_path='./metacyc.h5',
+                                                     parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+    if config_obj.metacyc_cmpd_dat_path and config_obj.metacyc_pathway_dat_path:
+        read_meta.assign_pathway_id_to_compound_in_h5('./metacyc.h5')
+    
     add_metacyc_compound_info()
     
     # ------------------------------------
     # External compound file for filtering
     # ------------------------------------
     logger.debug('Read external compound file for filtering')
-    for _path in config_obj.list_filename_compound_dat_for_filter:
+    for _path in config_obj.list_path_compound_dat_for_filter:
         logger.debug(f"filename: {os.path.basename(_path)}")
         read_meta.read_metacyc_compounds_dat(_path, output_path='./metacyc_for_filter.h5',
                                              parameters_to_open_file=dict(encoding='utf8', errors='replace'))

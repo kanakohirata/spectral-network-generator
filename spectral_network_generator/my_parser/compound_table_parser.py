@@ -101,11 +101,16 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
     columns_to_rename = {}
     columns_to_use = []
     for column_name in df.columns:
-        if column_name in ['CAS rn', 'CAS_rn', 'CAS no', 'CAS NO']:
+        if column_name in ['CAS RN', 'CAS rn', 'CAS_rn', 'CAS no', 'CAS NO']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_cas_rn'
             columns_to_use.append('list_cas_rn')
+        elif column_name in ['DBID', 'DB_ID', 'DB ID']:
+            df[column_name].astype(str)
+            df[column_name].fillna('', inplace=True)
+            columns_to_rename[column_name] = 'db_id'
+            columns_to_use.append('db_id')
         elif column_name in ['HMDBID', 'HMDB_ID', 'HMDB ID']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)

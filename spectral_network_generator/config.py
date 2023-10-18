@@ -40,15 +40,13 @@ class SpecNetGenConfig:
         self.list_precursor_type = []
         self.fragmentation_type = ''
         self.min_number_of_peaks = 1
-        self.list_filename_compound_dat_for_filter = []
+        self.list_path_compound_dat_for_filter = []
         self.list_filename_avoid_filter = []
 
-        self.filename_top_X_peak_rich = []
         self.num_top_X_peak_rich = 1000
 
         # spectral processing
         self.remove_low_intensity_peaks = 0.0005
-        self.deisotope_width = 1
         self.deisotope_int_ratio = 1
         self.topN_binned_ranges_topN_number = 10
         self.topN_binned_ranges_bin_size = 10
@@ -58,11 +56,9 @@ class SpecNetGenConfig:
         self.spec_matching_mode = 1
         self.mz_tol = 0
         self.matching_top_N_input = 20
-        self.match_peaklist_length = 1
 
         self.score_threshold_to_output = 0
         self.minimum_peak_match_to_output = 0
-        self.min_num_input_peaks_for_valid_bonanza = 0
 
         self.output_filename = ''
         self.output_folder_path = ''
@@ -164,10 +160,10 @@ def read_config_file(path='./config.ini'):
                          'or "cmpd_pathway".')
     my_config.ref_split_category = _ref_split_category
 
-    _list_ref_select_keyword = inifile.get('input', 'ref_select_keywords').split(',')
+    _list_ref_select_keyword = inifile.get('input', 'ref_select_keywords').split(';')
     my_config.list_ref_select_keyword = [_key.strip() for _key in _list_ref_select_keyword if _key.strip()]
 
-    _list_ref_exclude_keyword = inifile.get('input', 'ref_exclude_keywords').split(',')
+    _list_ref_exclude_keyword = inifile.get('input', 'ref_exclude_keywords').split(';')
     my_config.list_ref_exclude_keyword = [_key.strip() for _key in _list_ref_exclude_keyword if _key.strip()]
 
     _list_decoy = inifile.get('input', 'decoy').split(',')
@@ -193,29 +189,25 @@ def read_config_file(path='./config.ini'):
 
     my_config.min_number_of_peaks = int(inifile.get('filter', 'min_number_of_peaks'))
 
-    _list_compound_dat = inifile.get('filter', 'filename_compound_dat_for_filter').split(',')
-    my_config.list_filename_compound_dat_for_filter = [_dat.strip() for _dat in _list_compound_dat if _dat.strip()]
+    _list_compound_dat = inifile.get('filter', 'path_of_compound_dat_for_filter').split(',')
+    my_config.list_path_compound_dat_for_filter = [_dat.strip() for _dat in _list_compound_dat if _dat.strip()]
 
     my_config.remove_spec_wo_prec_mz = int(inifile.get('filter', 'remove_spec_wo_prec_mz'))
 
     _list_filename_avoid_filter = inifile.get('filter', 'filename_avoid_filter').split(',')
     my_config.list_filename_avoid_filter = [_filename.strip() for _filename in _list_filename_avoid_filter
                                             if _filename.strip()]
-
-    _list_filename_top_X_peak_rich = inifile.get('filter', 'filename_top_X_peak_rich').split(',')
-    my_config.list_filename_top_X_peak_rich = [_filename.strip() for _filename in _list_filename_top_X_peak_rich
-                                               if _filename.strip()]
-
-    my_config.num_top_X_peak_rich = int(inifile.get('filter', 'num_top_X_peak_rich'))
+    _num_top_X_peak_rich = inifile.get('filter', 'num_top_X_peak_rich')
+    if _num_top_X_peak_rich:
+        my_config.num_top_X_peak_rich= int(_num_top_X_peak_rich)
+    else:
+        my_config.num_top_X_peak_rich = 0
 
     # ------------------------------
     # [spectrum processing] section
     _list_remove_low_intensity_peaks = inifile.get('spectrum processing', 'remove_low_intensity_peaks').split(',')
     list_remove_low_intensity_peaks = [float(_value.strip()) for _value in _list_remove_low_intensity_peaks
                                        if _value.strip()]
-
-    _list_deisotope_width = inifile.get('spectrum processing', 'deisotope_width').split(',')
-    list_deisotope_width = [float(_value.strip()) for _value in _list_deisotope_width if _value.strip()]
 
     _list_deisotope_int_ratio = inifile.get('spectrum processing', 'deisotope_int_ratio').split(',')
     list_deisotope_int_ratio = [float(_value.strip()) for _value in _list_deisotope_int_ratio if _value.strip()]
@@ -244,9 +236,6 @@ def read_config_file(path='./config.ini'):
     _list_matching_top_N_input = inifile.get('peak matching related', 'matching_top_N_input').split(',')
     list_matching_top_N_input = [int(_value.strip()) for _value in _list_matching_top_N_input if _value.strip()]
 
-    _list_match_peaklist_length = inifile.get('peak matching related', 'match_peaklist_length').split(',')
-    list_match_peaklist_length = [int(_value.strip()) for _value in _list_match_peaklist_length if _value.strip()]
-
     # ------------------------------
     # [threshold] section
     _list_score_threshold_to_output = inifile.get('threshold', 'score_threshold').split(',')
@@ -255,11 +244,6 @@ def read_config_file(path='./config.ini'):
     _list_minimum_peak_match_to_output = inifile.get('threshold', 'minimum_peak_match_to_output').split(',')
     list_minimum_peak_match_to_output = [int(_value.strip()) for _value in _list_minimum_peak_match_to_output
                                          if _value.strip()]
-
-    _list_min_num_input_peaks_for_valid_bonanza = inifile.get('threshold',
-                                                              'minimum_num_input_peak_for_bonanza').split(',')
-    list_min_num_input_peaks_for_valid_bonanza = [
-        int(_value.strip()) for _value in _list_min_num_input_peaks_for_valid_bonanza if _value.strip()]
 
     # ------------------------------
     # [external info files] section
@@ -270,60 +254,82 @@ def read_config_file(path='./config.ini'):
             my_config.compound_table_paths.append(os.path.join(my_config.compound_table_folder_path, _f))
 
     my_config.filename_metacyc_cmpd_dat = inifile.get('external info files', 'metacyc_compound_dat')
-    my_config.metacyc_cmpd_dat_path = os.path.join(my_config.compound_table_folder_path,
-                                                   my_config.filename_metacyc_cmpd_dat)
-    if not os.path.isfile(my_config.metacyc_cmpd_dat_path):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_cmpd_dat_path)
+    if my_config.filename_metacyc_cmpd_dat:
+        my_config.metacyc_cmpd_dat_path = os.path.join(my_config.compound_table_folder_path,
+                                                    my_config.filename_metacyc_cmpd_dat)
+        if not os.path.isfile(my_config.metacyc_cmpd_dat_path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_cmpd_dat_path)
+    else:
+        my_config.metacyc_cmpd_dat_path = ''
 
     my_config.filename_metacyc_pathway_dat = inifile.get('external info files', 'metacyc_pathway_dat')
-    my_config.metacyc_pathway_dat_path = os.path.join(my_config.compound_table_folder_path,
-                                                      my_config.filename_metacyc_pathway_dat)
-    if not os.path.isfile(my_config.metacyc_pathway_dat_path):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_pathway_dat_path)
+    if my_config.filename_metacyc_pathway_dat:
+        my_config.metacyc_pathway_dat_path = os.path.join(my_config.compound_table_folder_path,
+                                                        my_config.filename_metacyc_pathway_dat)
+        if not os.path.isfile(my_config.metacyc_pathway_dat_path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_pathway_dat_path)
+    else:
+        my_config.metacyc_pathway_dat_path = ''
 
     my_config.external_file_filter_mode = int(inifile.get('external info files', 'mode'))
 
-    # ------------------------------
-    # [assessment] section
-    my_config.class_matching_correlation = int(inifile.get('assessment', 'class_matching_correlation'))
-
-    # ------------------------------
-    # [other] section
-    my_config.flag_write_log = int(inifile.get('other', 'write log'))
-    my_config.flag_display_process = int(inifile.get('other', 'display process'))
 
     config_filename = os.path.basename(path)
     shutil.copyfile(path, os.path.join(my_config.output_folder_path, config_filename))
 
     # ----------------------------------------
     # Create combination of config settings
-    list_header_df = ['idx_conf', 'remove_low_intensity_peaks', 'deisotope_width', 'deisotope_int_ratio',
-                      'topN_binned_ranges_topN_number', 'topN_binned_ranges_bin_size', 'intensity_convert_mode',
-                      'spec_matching_mode', 'mz_tol', 'matching_top_N_input', 'match_peaklist_length',
-                      'score_threshold_to_output', 'minimum_peak_match_to_output',
-                      'min_num_input_peaks_for_valid_bonanza']
+    list_header_df = ['idx_conf',
+                      'remove_low_intensity_peaks',
+                      'deisotope_int_ratio',
+                      'topN_binned_ranges_topN_number',
+                      'topN_binned_ranges_bin_size',
+                      'intensity_convert_mode',
+                      'spec_matching_mode',
+                      'mz_tol',
+                      'matching_top_N_input',
+                      'score_threshold_to_output',
+                      'minimum_peak_match_to_output']
 
     df_conf = pd.DataFrame(columns=list_header_df)
 
     list_config = []
     idx_conf = -1
 
-    for (remove_low_intensity_peaks, deisotope_width, deisotope_int_ratio, topN_binned_ranges_topN_number,
-         topN_binned_ranges_bin_size, intensity_convert_mode, spec_matching_mode, mz_tol, matching_top_N_input,
-         match_peaklist_length, score_threshold_to_output, minimum_peak_match_to_output,
-         min_num_input_peaks_for_valid_bonanza)\
-        in itertools.product(list_remove_low_intensity_peaks, list_deisotope_width, list_deisotope_int_ratio,
-                             list_topN_binned_ranges_topN_number, list_topN_binned_ranges_bin_size,
-                             list_intensity_convert_mode, list_spec_matching_mode, list_mz_tol,
-                             list_matching_top_N_input, list_match_peaklist_length, list_score_threshold_to_output,
-                             list_minimum_peak_match_to_output, list_min_num_input_peaks_for_valid_bonanza):
+    for (remove_low_intensity_peaks,
+         deisotope_int_ratio,
+         topN_binned_ranges_topN_number,
+         topN_binned_ranges_bin_size,
+         intensity_convert_mode,
+         spec_matching_mode,
+         mz_tol,
+         matching_top_N_input,
+         score_threshold_to_output,
+         minimum_peak_match_to_output)\
+        in itertools.product(list_remove_low_intensity_peaks,
+                             list_deisotope_int_ratio,
+                             list_topN_binned_ranges_topN_number,
+                             list_topN_binned_ranges_bin_size,
+                             list_intensity_convert_mode,
+                             list_spec_matching_mode,
+                             list_mz_tol,
+                             list_matching_top_N_input,
+                             list_score_threshold_to_output,
+                             list_minimum_peak_match_to_output):
         idx_conf += 1
 
         df_conf.loc[idx_conf, :] = [
-            idx_conf, remove_low_intensity_peaks, deisotope_width, deisotope_int_ratio, topN_binned_ranges_topN_number,
-            topN_binned_ranges_bin_size, intensity_convert_mode, spec_matching_mode, mz_tol, matching_top_N_input,
-            match_peaklist_length, score_threshold_to_output, minimum_peak_match_to_output,
-            min_num_input_peaks_for_valid_bonanza
+            idx_conf,
+            remove_low_intensity_peaks,
+            deisotope_int_ratio,
+            topN_binned_ranges_topN_number,
+            topN_binned_ranges_bin_size,
+            intensity_convert_mode,
+            spec_matching_mode,
+            mz_tol,
+            matching_top_N_input,
+            score_threshold_to_output,
+            minimum_peak_match_to_output
         ]
 
         obj_config = deepcopy(my_config)
@@ -331,7 +337,6 @@ def read_config_file(path='./config.ini'):
         # id conf
         obj_config.id = idx_conf
         obj_config.remove_low_intensity_peaks = remove_low_intensity_peaks
-        obj_config.deisotope_width = deisotope_width
         obj_config.deisotope_int_ratio = deisotope_int_ratio
         obj_config.topN_binned_ranges_topN_number = topN_binned_ranges_topN_number
         obj_config.topN_binned_ranges_bin_size = topN_binned_ranges_bin_size
@@ -339,10 +344,8 @@ def read_config_file(path='./config.ini'):
         obj_config.spec_matching_mode = spec_matching_mode
         obj_config.mz_tol = float(mz_tol)
         obj_config.matching_top_N_input = matching_top_N_input
-        obj_config.match_peaklist_length = match_peaklist_length
         obj_config.score_threshold_to_output = score_threshold_to_output
         obj_config.minimum_peak_match_to_output = minimum_peak_match_to_output
-        obj_config.min_num_input_peaks_for_valid_bonanza = min_num_input_peaks_for_valid_bonanza
         list_config.append(obj_config)
 
     df_conf.to_csv(os.path.join(my_config.output_folder_path, 'config_combination.csv'))

@@ -72,12 +72,6 @@ def filter_reference_spectra(config_obj, _logger=None):
 
     LOGGER.info('Filter reference spectra')
 
-    def _avoid_filter(a):
-        if a in config_obj.list_filename_avoid_filter:
-            return True
-        else:
-            return False
-
     def _author_filter(a):
         result = False
         for _author_keyword in config_obj.list_author:
@@ -161,6 +155,7 @@ def filter_reference_spectra(config_obj, _logger=None):
 
         return result
 
+
     with h5py.File('./metacyc_for_filter.h5', 'r') as metacyc_h5:
         metacyc_dset = metacyc_h5['compound']
         if metacyc_dset.size:
@@ -177,11 +172,10 @@ def filter_reference_spectra(config_obj, _logger=None):
                 idx_arr = sample_idx_arr
             else:
                 _mask_all_true = np.array([True] * ref_arr.shape[0])
-                mask_avoid_filter = _mask_all_true
+                mask_avoid_filter = np.invert(_mask_all_true)
 
                 # whether to filter ---------------------------------------------------
                 if config_obj.list_filename_avoid_filter:
-                    _filter = np.frompyfunc(_avoid_filter, 1, 1)
                     mask_avoid_filter = np.isin(np.char.decode(ref_arr['source_filename'].astype(np.bytes_), encoding='utf8'),
                                                 config_obj.list_filename_avoid_filter)
 
@@ -252,8 +246,28 @@ def filter_reference_spectra(config_obj, _logger=None):
 
                     # compound filter --------------------------------------------------
                     mask_compound = _mask_all_true
-                    if config_obj.list_filename_compound_dat_for_filter:
+                    if config_obj.list_path_compound_dat_for_filter and metacyc_inchikeys.size:
                         mask_compound = np.isin(ref_arr['inchikey'].astype(str), metacyc_inchikeys)
+
+                    # keyword filter --------------------------------------------------
+                    if config_obj.ref_split_category == 'cmpd_classification_superclass':
+                        keyword_arr = ref_arr['cmpd_classification_superclass_list']
+                    elif config_obj.ref_split_category == 'cmpd_classification_class':
+                        keyword_arr = ref_arr['cmpd_classification_class_list']
+                    elif config_obj.ref_split_category == 'cmpd_pathway':
+                        keyword_arr = ref_arr['pathway_unique_id_list']
+                    else:
+                        keyword_arr = np.empty()
+                    
+                    # to select --------------------------------------------------
+                    mask_select_keyword = _mask_all_true
+                    if config_obj.list_ref_select_keyword and keyword_arr.size:
+                        mask_select_keyword = np.isin(keyword_arr, config_obj.list_ref_select_keyword)
+                    
+                    # to exclude --------------------------------------------------
+                    mask_exclud_keyword = _mask_all_true
+                    if config_obj.list_ref_exclude_keyword and keyword_arr.size:
+                        mask_exclud_keyword = np.invert(np.isin(keyword_arr, config_obj.list_ref_exclude_keyword))
 
                     mask_all = (mask_author
                                 & mask_name
@@ -263,7 +277,9 @@ def filter_reference_spectra(config_obj, _logger=None):
                                 & mask_fragmentation_type
                                 & mask_min_number_of_peaks
                                 & mask_precursor_mass_exists
-                                & mask_compound).astype(bool)
+                                & mask_compound
+                                & mask_select_keyword
+                                & mask_exclud_keyword).astype(bool)
 
                     filtered_ref_idx_arr = ref_arr[mask_all]['index']
                     idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)

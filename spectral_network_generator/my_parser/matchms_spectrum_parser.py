@@ -10,6 +10,7 @@ import os
 import pickle
 import re
 import time
+from my_parser.mona_parser import convert_json_to_matchms_spectra
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -65,6 +66,9 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
     elif spectra_filename.endswith('.json'):
         logger.info('Load from json')
         spectra_file = load_from_json(spectra_path)
+
+        if not spectra_file:
+            spectra_file = convert_json_to_matchms_spectra(spectra_path)
     else:
         return
 
@@ -141,13 +145,17 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
             _s.get('compound_name', ''),
             _s.get('title', ''),
             _s.get('instrument_type', ''),
-            _s.get('ionization_mode') or _s.get('ionization', ''),
+            _s.get('ionization_mode') or _s.get('ionization') or _s.get('ion_mode') or _s.get('ionmode', ''),
             _s.get('precursor_type', ''),
             _s.get('fragmentation_type') or _s.get('fragmentation_mode') or _s.get('fragmentation', ''),
             _s.mz.size,
             str_peaks,
             str_mz,
-            '', '', '', '', '', '', ''
+            '', '', '',
+            _s.get('classification_superclass', ''),
+            _s.get('classification_class', ''),
+            _s.get('classification_subclass', ''),
+            _s.get('classification_alternative_parent', ''),
         ))
 
         _spectra.append(_s)
