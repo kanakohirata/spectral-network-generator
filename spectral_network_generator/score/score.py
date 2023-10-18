@@ -187,54 +187,55 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                 dset[-last_arr.shape[0]:] = last_arr
 
         # Cluster scores of ref vs ref
-        for arr, _start_idx, _end_idx in get_chunks('_ref_score', db_chunk_size=chunk_size, path='./score.h5'):
-            LOGGER.debug(f'Ref vs Ref {_start_idx} - {_end_idx}, {arr.shape}')
-            if '_clustered_ref_score' in h5.keys():
-                for _clustered_arr, _, _ in get_chunks('_clustered_ref_score', db_chunk_size=chunk_size, path='./score.h5'):
-                    _arr = np.hstack((arr, _clustered_arr))
-                    _arr = _arr[np.argsort(_arr, order=['score', 'matches'])[::-1]]
-                    temp_arr = np.array(_arr[['inchikey_a', 'inchikey_b']].tolist())
+        if '_ref_score' in h5.keys():
+            for arr, _start_idx, _end_idx in get_chunks('_ref_score', db_chunk_size=chunk_size, path='./score.h5'):
+                LOGGER.debug(f'Ref vs Ref {_start_idx} - {_end_idx}, {arr.shape}')
+                if '_clustered_ref_score' in h5.keys():
+                    for _clustered_arr, _, _ in get_chunks('_clustered_ref_score', db_chunk_size=chunk_size, path='./score.h5'):
+                        _arr = np.hstack((arr, _clustered_arr))
+                        _arr = _arr[np.argsort(_arr, order=['score', 'matches'])[::-1]]
+                        temp_arr = np.array(_arr[['inchikey_a', 'inchikey_b']].tolist())
+                        temp_arr = np.sort(temp_arr, axis=1)
+                        _, indices = np.unique(temp_arr, axis=0, return_index=True)
+                        arr = arr[np.isin(arr['index'], _arr[indices]['index'])]
+                        _clustered_arr = _clustered_arr[np.isin(_clustered_arr['index'], _arr[indices]['index'])]
+                        if '_temp' in h5.keys():
+                            _dset = h5['_temp']
+                            _dset.resize((_dset.len() + _clustered_arr.shape[0]), axis=0)
+                            _dset[-_clustered_arr.shape[0]:] = _clustered_arr
+                            h5.flush()
+                        else:
+                            h5.create_dataset('_temp', data=_clustered_arr, shape=_clustered_arr.shape, maxshape=(None,))
+                            h5.flush()
+
+                    _dset = h5['_temp']
+                    _clustered_arr = np.hstack((_dset[()], arr))
+                    del h5['_temp']
+                    del h5['_clustered_ref_score']
+                    h5.create_dataset('_clustered_ref_score', data=_clustered_arr,
+                                    shape=_clustered_arr.shape, maxshape=(None,))
+                    h5.flush()
+
+                else:
+                    arr = arr[np.argsort(arr, order=['score', 'matches'])[::-1]]
+                    temp_arr = np.array(arr[['inchikey_a', 'inchikey_b']].tolist())
                     temp_arr = np.sort(temp_arr, axis=1)
                     _, indices = np.unique(temp_arr, axis=0, return_index=True)
-                    arr = arr[np.isin(arr['index'], _arr[indices]['index'])]
-                    _clustered_arr = _clustered_arr[np.isin(_clustered_arr['index'], _arr[indices]['index'])]
-                    if '_temp' in h5.keys():
-                        _dset = h5['_temp']
-                        _dset.resize((_dset.len() + _clustered_arr.shape[0]), axis=0)
-                        _dset[-_clustered_arr.shape[0]:] = _clustered_arr
-                        h5.flush()
-                    else:
-                        h5.create_dataset('_temp', data=_clustered_arr, shape=_clustered_arr.shape, maxshape=(None,))
-                        h5.flush()
+                    indices.sort()
+                    arr = arr[np.isin(arr['index'], arr[indices]['index'])]
+                    h5.create_dataset('_clustered_ref_score', data=arr, shape=arr.shape, maxshape=(None,))
+                    h5.flush()
 
-                _dset = h5['_temp']
-                _clustered_arr = np.hstack((_dset[()], arr))
-                del h5['_temp']
-                del h5['_clustered_ref_score']
-                h5.create_dataset('_clustered_ref_score', data=_clustered_arr,
-                                  shape=_clustered_arr.shape, maxshape=(None,))
-                h5.flush()
+            # Add clustered scores of ref vs ref
+            dset_ref = h5['_clustered_ref_score']
+            dset = h5['clustered_score']
+            dset.resize((dset.len() + dset_ref.len()), axis=0)
+            dset[-dset_ref.len():] = dset_ref[()]
 
-            else:
-                arr = arr[np.argsort(arr, order=['score', 'matches'])[::-1]]
-                temp_arr = np.array(arr[['inchikey_a', 'inchikey_b']].tolist())
-                temp_arr = np.sort(temp_arr, axis=1)
-                _, indices = np.unique(temp_arr, axis=0, return_index=True)
-                indices.sort()
-                arr = arr[np.isin(arr['index'], arr[indices]['index'])]
-                h5.create_dataset('_clustered_ref_score', data=arr, shape=arr.shape, maxshape=(None,))
-                h5.flush()
+            del h5['_clustered_ref_score']
+            del h5['_ref_score']
 
-        # Add clustered scores of ref vs ref
-        dset_ref = h5['_clustered_ref_score']
-        dset = h5['clustered_score']
-        dset.resize((dset.len() + dset_ref.len()), axis=0)
-        dset[-dset_ref.len():] = dset_ref[()]
-
-        del h5['_clustered_ref_score']
-        del h5['_ref_score']
-
-        h5.flush()
+            h5.flush()
 
 
 if __name__ == '__main__':

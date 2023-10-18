@@ -70,9 +70,9 @@ def generate_spectral_network(config_obj, _logger=None):
 
     report.info(f'config_obj.id is {config_obj.id}')
 
-    #############################
+    # ------------------
     # output file names
-    #############################
+    # ------------------
     cluster_attribute_path = os.path.join(config_obj.output_folder_path,
                                           f'{config_obj.output_filename}.cluster_attribute.tsv')
     edge_info_path = os.path.join(config_obj.output_folder_path, f'{config_obj.output_filename}.edgeinfo.tsv')
@@ -95,11 +95,28 @@ def generate_spectral_network(config_obj, _logger=None):
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(config_obj)
 
+    # ------------------------------------------------
+    # Add external compound data to reference spectra
+    # ------------------------------------------------
+    if config_obj.compound_table_paths:
+        add_classyfire_class(config_obj.compound_table_paths)
+
+    if config_obj.metacyc_cmpd_dat_path:
+        read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
+                                                      parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+    if config_obj.metacyc_pathway_dat_path:
+        read_meta.convert_metacyc_pathways_dat_to_h5(config_obj.metacyc_pathway_dat_path, output_path='./metacyc.h5',
+                                                     parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+    if config_obj.metacyc_cmpd_dat_path and config_obj.metacyc_pathway_dat_path:
+        read_meta.assign_pathway_id_to_compound_in_h5('./metacyc.h5')
+    
+    add_metacyc_compound_info()
+    
     # ------------------------------------
     # External compound file for filtering
     # ------------------------------------
     logger.debug('Read external compound file for filtering')
-    for _path in config_obj.list_filename_compound_dat_for_filter:
+    for _path in config_obj.list_path_compound_dat_for_filter:
         logger.debug(f"filename: {os.path.basename(_path)}")
         read_meta.read_metacyc_compounds_dat(_path, output_path='./metacyc_for_filter.h5',
                                              parameters_to_open_file=dict(encoding='utf8', errors='replace'))
@@ -114,15 +131,6 @@ def generate_spectral_network(config_obj, _logger=None):
     calculate_similarity_score(config_obj.mz_tol)
     clustering_based_on_inchikey()
     add_cluster_id()
-
-    read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
-                                                  parameters_to_open_file=dict(encoding='utf8', errors='replace'))
-    read_meta.convert_metacyc_pathways_dat_to_h5(config_obj.metacyc_pathway_dat_path, output_path='./metacyc.h5',
-                                                 parameters_to_open_file=dict(encoding='utf8', errors='replace'))
-    read_meta.assign_pathway_id_to_compound_in_h5('./metacyc.h5')
-
-    add_classyfire_class(config_obj.compound_table_paths)
-    add_metacyc_compound_info()
 
     # -------
     # Output
