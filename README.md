@@ -31,8 +31,8 @@ Acceptable columns:
 - **MOLECULAR FORMULA**
 - **NAME**
 - **SUPERCLASS**: Superclass is one of the hierarchical levels used to categorize chemical compounds in the ClassyFire (http://classyfire.wishartlab.com/) classification system.
-- **CLASS**: One hierarchical level below Superclass
-- **SUBCLASS**: One hierarchical level below Class
+- **CLASS**: a hierarchical level below Superclass
+- **SUBCLASS**: a hierarchical level below Class
 
 ## How to Use the Spectral Network Generator
 ### Installation of Docker and Downloading the GitHub Repository
