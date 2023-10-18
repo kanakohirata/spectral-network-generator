@@ -4,7 +4,7 @@ from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandle
 import h5py
 import os
 from filter.filter import filter_reference_spectra, remove_blank_spectra_from_sample_spectra
-from my_parser import read_metacyc_pathway_compound as read_meta
+from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, load_and_serialize_spectra,
