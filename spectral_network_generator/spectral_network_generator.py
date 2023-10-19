@@ -3,7 +3,7 @@ import logging
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from filter.filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
+from my_filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
