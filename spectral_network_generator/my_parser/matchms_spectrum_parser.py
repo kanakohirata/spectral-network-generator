@@ -11,6 +11,7 @@ import pickle
 import re
 import time
 from my_parser.mona_parser import convert_json_to_matchms_spectra
+from utils.spectrum_processing import introduce_random_delta_to_mz
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -32,7 +33,7 @@ def delete_serialize_spectra_file():
         os.remove(p)
 
 
-def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.001, _logger=None):
+def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.001, is_introduce_random_mass_shift=False, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -75,10 +76,16 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
     if not spectra_file:
         return
 
+    if is_introduce_random_mass_shift:
+        logger.info(f'Introduce random mass shift: {spectra_filename}')
+    
     _spectra = []
     for _s in spectra_file:
         last_index += 1
         _s.set('index', last_index)
+
+        if is_introduce_random_mass_shift:
+            _s = introduce_random_delta_to_mz(_s, 0, 50)
 
         _s = normalize_intensities(_s)
         _s = add_retention_time(_s)
