@@ -1,12 +1,23 @@
 import configparser
-from glob import glob
 from copy import deepcopy
 import errno
+from glob import glob
 import itertools
+import logging
+from logging import DEBUG, Formatter, getLogger, StreamHandler
 import os
+import pandas as pd
 import shutil
 
-import pandas as pd
+
+LOGGER = getLogger(__name__)
+LOGGER.setLevel(DEBUG)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+formatter = Formatter('\t'.join(['%(asctime)s', '[%(levelname)s]', '%(name)s(Line:%(lineno)d)', '%(message)s']))
+handler.setFormatter(formatter)
+LOGGER.addHandler(handler)
+LOGGER.propagate = False
 
 
 class SpecNetGenConfig:
@@ -34,6 +45,7 @@ class SpecNetGenConfig:
         self.create_edge_within_layer_ref = 0
         self.list_decoy = []
 
+        # filtering
         self.list_author = ''
         self.list_name_key_characters_to_remove = []
         self.instrument_type = ''
@@ -41,11 +53,13 @@ class SpecNetGenConfig:
         self.fragmentation_type = ''
         self.min_number_of_peaks = 1
         self.list_path_compound_dat_for_filter = []
+        self.remove_spec_wo_prec_mz = 0
         self.list_filename_avoid_filter = []
-
-        self.num_top_X_peak_rich = 1000
+        self.num_top_x_peak_rich = 0
 
         # spectral processing
+        self.mz_tol_to_remove_blank = 0
+        self.rt_tol_to_remove_blank = 0
         self.remove_low_intensity_peaks = 0.0005
         self.deisotope_int_ratio = 1
         self.topN_binned_ranges_topN_number = 10
@@ -76,7 +90,11 @@ class SpecNetGenConfig:
         self.external_file_filter_mode = 0
 
 
-def read_config_file(path='./config.ini'):
+def read_config_file(path='./config.ini', _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
     # set file names etc +++++++++++++++++++++++++++++++
     my_config = SpecNetGenConfig()
 
@@ -186,25 +204,47 @@ def read_config_file(path='./config.ini'):
                                      if _precursor_type.strip()]
 
     my_config.fragmentation_type = inifile.get('filter', 'fragmentation_type')
-
-    my_config.min_number_of_peaks = int(inifile.get('filter', 'min_number_of_peaks'))
+    
+    _min_number_of_peaks = inifile.get('filter', 'min_number_of_peaks')
+    if _min_number_of_peaks:
+        my_config.min_number_of_peaks = int(_min_number_of_peaks)
+        if my_config.min_number_of_peaks < 1:
+            raise ValueError(f'min_number_of_peaks must be > 1: {my_config.mmin_number_of_peaks}')
 
     _list_compound_dat = inifile.get('filter', 'path_of_compound_dat_for_filter').split(',')
     my_config.list_path_compound_dat_for_filter = [_dat.strip() for _dat in _list_compound_dat if _dat.strip()]
 
-    my_config.remove_spec_wo_prec_mz = int(inifile.get('filter', 'remove_spec_wo_prec_mz'))
+    _remove_spec_wo_prec_mz = inifile.get('filter', 'remove_spec_wo_prec_mz')
+    if _remove_spec_wo_prec_mz:
+        my_config.remove_spec_wo_prec_mz = int(_remove_spec_wo_prec_mz)
+        if my_config.remove_spec_wo_prec_mz not in (0, 1):
+            raise ValueError(f'min_number_of_peaks must be 0 or 1: {my_config.remove_spec_wo_prec_mz}')
 
     _list_filename_avoid_filter = inifile.get('filter', 'filename_avoid_filter').split(',')
     my_config.list_filename_avoid_filter = [_filename.strip() for _filename in _list_filename_avoid_filter
                                             if _filename.strip()]
-    _num_top_X_peak_rich = inifile.get('filter', 'num_top_X_peak_rich')
-    if _num_top_X_peak_rich:
-        my_config.num_top_X_peak_rich= int(_num_top_X_peak_rich)
+    _num_top_x_peak_rich = inifile.get('filter', 'num_top_X_peak_rich')
+    if _num_top_x_peak_rich:
+        my_config.num_top_x_peak_rich= int(_num_top_x_peak_rich)
+        if my_config.num_top_x_peak_rich < 0:
+            raise ValueError(f'num_top_X_peak_rich must be > 0: {my_config.num_top_x_peak_rich}')
     else:
-        my_config.num_top_X_peak_rich = 0
+        my_config.num_top_x_peak_rich = 0
 
     # ------------------------------
     # [spectrum processing] section
+    _list_mz_tol_to_remove_blank = inifile.get('spectrum processing', 'mz_tol_to_remove_blank').split(',')
+    list_mz_tol_to_remove_blank = [float(_value.strip()) for _value in _list_mz_tol_to_remove_blank if _value.strip()]
+    for _t in list_mz_tol_to_remove_blank:
+        if _t < 0:
+            raise ValueError(f'mz_tol_to_remove_blank must be > 0: {_t}')
+
+    _list_rt_tol_to_remove_blank = inifile.get('spectrum processing', 'rt_tol_to_remove_blank').split(',')
+    list_rt_tol_to_remove_blank = [float(_value.strip()) for _value in _list_rt_tol_to_remove_blank if _value.strip()]
+    for _t in list_rt_tol_to_remove_blank:
+        if _t < 0:
+            raise ValueError(f'rt_tol_to_remove_blank must be > 0: {_t}')
+
     _list_remove_low_intensity_peaks = inifile.get('spectrum processing', 'remove_low_intensity_peaks').split(',')
     list_remove_low_intensity_peaks = [float(_value.strip()) for _value in _list_remove_low_intensity_peaks
                                        if _value.strip()]
@@ -280,6 +320,8 @@ def read_config_file(path='./config.ini'):
     # ----------------------------------------
     # Create combination of config settings
     list_header_df = ['idx_conf',
+                      'mz_tol_to_remove_blank',
+                      'rt_tol_to_remove_blank',
                       'remove_low_intensity_peaks',
                       'deisotope_int_ratio',
                       'topN_binned_ranges_topN_number',
@@ -296,7 +338,9 @@ def read_config_file(path='./config.ini'):
     list_config = []
     idx_conf = -1
 
-    for (remove_low_intensity_peaks,
+    for (mz_tol_to_remove_blank,
+         rt_tol_to_remove_blank,
+         remove_low_intensity_peaks,
          deisotope_int_ratio,
          topN_binned_ranges_topN_number,
          topN_binned_ranges_bin_size,
@@ -306,7 +350,9 @@ def read_config_file(path='./config.ini'):
          matching_top_N_input,
          score_threshold_to_output,
          minimum_peak_match_to_output)\
-        in itertools.product(list_remove_low_intensity_peaks,
+        in itertools.product(list_mz_tol_to_remove_blank,
+                             list_rt_tol_to_remove_blank,
+                             list_remove_low_intensity_peaks,
                              list_deisotope_int_ratio,
                              list_topN_binned_ranges_topN_number,
                              list_topN_binned_ranges_bin_size,
@@ -320,6 +366,8 @@ def read_config_file(path='./config.ini'):
 
         df_conf.loc[idx_conf, :] = [
             idx_conf,
+            mz_tol_to_remove_blank,
+            rt_tol_to_remove_blank,
             remove_low_intensity_peaks,
             deisotope_int_ratio,
             topN_binned_ranges_topN_number,
@@ -336,13 +384,15 @@ def read_config_file(path='./config.ini'):
 
         # id conf
         obj_config.id = idx_conf
+        obj_config.mz_tol_to_remove_blank = mz_tol_to_remove_blank
+        obj_config.rt_tol_to_remove_blank = rt_tol_to_remove_blank
         obj_config.remove_low_intensity_peaks = remove_low_intensity_peaks
         obj_config.deisotope_int_ratio = deisotope_int_ratio
         obj_config.topN_binned_ranges_topN_number = topN_binned_ranges_topN_number
         obj_config.topN_binned_ranges_bin_size = topN_binned_ranges_bin_size
         obj_config.intensity_convert_mode = intensity_convert_mode
         obj_config.spec_matching_mode = spec_matching_mode
-        obj_config.mz_tol = float(mz_tol)
+        obj_config.mz_tol = mz_tol
         obj_config.matching_top_N_input = matching_top_N_input
         obj_config.score_threshold_to_output = score_threshold_to_output
         obj_config.minimum_peak_match_to_output = minimum_peak_match_to_output

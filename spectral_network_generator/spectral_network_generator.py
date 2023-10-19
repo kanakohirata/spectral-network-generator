@@ -3,7 +3,7 @@ import logging
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from filter.filter import filter_reference_spectra, remove_blank_spectra_from_sample_spectra
+from filter.filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
@@ -108,7 +108,7 @@ def generate_spectral_network(config_obj, _logger=None):
                                    is_introduce_random_mass_shift=_is_introduce_random_mass_shift)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
-    remove_blank_spectra_from_sample_spectra(config_obj)
+    remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)
 
     # ------------------------------------------------
     # Add external compound data to reference spectra
@@ -138,6 +138,14 @@ def generate_spectral_network(config_obj, _logger=None):
 
     report.info(f"\nfiles NOT to be filtered {str(config_obj.list_filename_avoid_filter)}\n")
     filter_reference_spectra(config_obj, report)
+
+    # ------------------------------------
+    # Extract top X peak rich spectra
+    # ------------------------------------
+    if config_obj.num_top_x_peak_rich:
+        for _filename in config_obj.list_sample_filename:
+            extract_top_x_prak_rich(_filename, config_obj.num_top_x_peak_rich)
+    
     serialize_filtered_spectra()
 
     # -------------------------------

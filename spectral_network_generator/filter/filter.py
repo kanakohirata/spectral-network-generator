@@ -17,36 +17,37 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def remove_blank_spectra_from_sample_spectra(config_obj, mz_tolerance=0.01, rt_in_sec_tolerance=30):
+def remove_blank_spectra_from_sample_spectra(mz_tolerance=0.01, rt_tolerance=0.1):
     with h5py.File('./spectrum_metadata.h5', 'a') as h5:
-        if not config_obj.list_blank_file_path:
-            return
-
-        blank_arr = h5['metadata'][(h5['metadata'].fields('tag')[()].astype(str) == 'blank')]
-        blank_arr = blank_arr[(blank_arr['precursor_mz'] != 0) | (blank_arr['rt_in_sec'] != 0)]
-
+        blank_arr = h5['metadata'][(h5['metadata'].fields('tag')[()].astype(str) == 'blank')
+                                   & (h5['metadata'].fields('precursor_mz')[()] != 0)
+                                   & (h5['metadata'].fields('rt_in_sec')[()] != 0)]
+        
         if not blank_arr.size:
             return
+        blank_arr = blank_arr[['precursor_mz', 'rt_in_sec']]
 
         for arr, chunk_start, chunk_end in get_chunks('filtered/metadata'):
-            sample_arr = arr[arr['tag'].astype(str) == 'sample']
-            ref_idx_arr = arr[arr['tag'].astype(str) == 'ref']['index']
+            sample_arr = arr[(arr['tag'].astype(str) == 'sample')
+                             & (arr['precursor_mz'] != 0)
+                             & (arr['rt_in_sec'] != 0)]
+            non_target_idx_arr = np.setdiff1d(arr['index'], sample_arr['index'])
 
             if sample_arr.size:
-                mask = np.array([True] * sample_arr.shape[0])
-                for (_blank_mz, _blank_rt) in blank_arr[['precursor_mz', 'rt_in_sec']]:
-                    _mask_mz_is_not_zero = sample_arr['precursor_mz'] != 0
-                    _mask_rt_is_not_zero = sample_arr['rt_in_sec'] != 0
-                    _mask_mz_delta_is_less_than_tol = abs(sample_arr['precursor_mz'] - _blank_mz) < mz_tolerance
-                    _mask_rt_delta_is_less_than_tol = abs(sample_arr['rt_in_sec'] - _blank_rt) < rt_in_sec_tolerance
-                    _mask = (_mask_mz_is_not_zero & _mask_rt_is_not_zero
-                             & _mask_mz_delta_is_less_than_tol & _mask_rt_delta_is_less_than_tol)
-                    mask = np.logical_and(np.invert(_mask), mask)
+                sample_mz = sample_arr['precursor_mz']
+                sample_rt = sample_arr['rt_in_sec']
 
-                filtered_sample_idx_arr = sample_arr[mask]['index']
-                idx_arr = np.append(filtered_sample_idx_arr, ref_idx_arr)
+                mz_diff = np.abs(sample_mz[:, np.newaxis] - blank_arr['precursor_mz']) <= mz_tolerance
+                rt_diff = np.abs(sample_rt[:, np.newaxis] - blank_arr['rt_in_sec']) <= rt_tolerance
+
+                mz_and_rt_diff = np.logical_and(mz_diff, rt_diff)
+                mz_and_rt_diff_inverted = np.invert(mz_and_rt_diff)
+                mask = np.all(mz_and_rt_diff_inverted, axis=1)
+
+                filtered_sample_idx_arr = sample_arr['index'][mask]
+                idx_arr = np.append(filtered_sample_idx_arr, non_target_idx_arr)
             else:
-                idx_arr = ref_idx_arr
+                idx_arr = non_target_idx_arr
 
             idx_arr.sort()
             arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
@@ -58,8 +59,10 @@ def remove_blank_spectra_from_sample_spectra(config_obj, mz_tolerance=0.01, rt_i
                 h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain
             h5.flush()
 
-        h5['filtered/metadata'].resize(h5['filtered/_metadata'].len(), axis=0)
-        h5['filtered/metadata'][:] = h5['filtered/_metadata'][:]
+        del h5['filtered/metadata']
+        h5.flush()
+        
+        h5.create_dataset('filtered/metadata', data=h5['filtered/_metadata'][()], shape=h5['filtered/_metadata'].shape, maxshape=(None,))
         del h5['filtered/_metadata']
         h5.flush()
 
@@ -166,7 +169,7 @@ def filter_reference_spectra(config_obj, _logger=None):
     with h5py.File('./spectrum_metadata.h5', 'a') as h5:
         for arr, chunk_start, chunk_end in get_chunks('filtered/metadata'):
             ref_arr = arr[arr['tag'] == b'ref']
-            sample_idx_arr = arr[arr['tag'] == b'sample']['index']
+            sample_idx_arr = arr['index'][arr['tag'] == b'sample']
 
             if not ref_arr.size:
                 idx_arr = sample_idx_arr
@@ -179,7 +182,7 @@ def filter_reference_spectra(config_obj, _logger=None):
                     mask_avoid_filter = np.isin(np.char.decode(ref_arr['source_filename'].astype(np.bytes_), encoding='utf8'),
                                                 config_obj.list_filename_avoid_filter)
 
-                unfiltered_ref_idx_arr = ref_arr[mask_avoid_filter]['index']
+                unfiltered_ref_idx_arr = ref_arr['index'][mask_avoid_filter]
                 ref_arr = ref_arr[np.invert(mask_avoid_filter)]
 
                 if not ref_arr.size:
@@ -281,7 +284,7 @@ def filter_reference_spectra(config_obj, _logger=None):
                                 & mask_select_keyword
                                 & mask_exclud_keyword).astype(bool)
 
-                    filtered_ref_idx_arr = ref_arr[mask_all]['index']
+                    filtered_ref_idx_arr = ref_arr['index'][mask_all]
                     idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)
                     idx_arr = np.append(idx_arr, unfiltered_ref_idx_arr)
 
@@ -295,7 +298,46 @@ def filter_reference_spectra(config_obj, _logger=None):
                 h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain
             h5.flush()
 
-        h5['filtered/metadata'].resize(h5['filtered/_metadata'].len(), axis=0)
-        h5['filtered/metadata'][:] = h5['filtered/_metadata'][:]
+        del h5['filtered/metadata']
+        h5.flush()
+        
+        h5.create_dataset('filtered/metadata', data=h5['filtered/_metadata'][()], shape=h5['filtered/_metadata'].shape, maxshape=(None,))
         del h5['filtered/_metadata']
+        h5.flush()
+
+
+def extract_top_x_prak_rich(filename, num_top_x_peak_rich, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    if num_top_x_peak_rich <= 0:
+        return
+    
+    logger.info(f'Extract top {num_top_x_peak_rich} peak rich spectra of {filename}')
+    
+    with h5py.File('./spectrum_metadata.h5', 'a') as h5:
+        dset = h5['filtered/metadata']
+        idx_arr = dset.fields('index')[()]
+        filename_arr = dset.fields('source_filename')[()].astype(str)
+
+        target_arr = dset[filename_arr == filename]
+        if target_arr.shape[0] <= num_top_x_peak_rich:
+            return
+        target_arr = target_arr[['index', 'number_of_peaks']]
+        target_idx_arr = target_arr['index']
+        idx_arr_to_retain = np.setdiff1d(idx_arr, target_idx_arr)
+
+        sorted_indices_desc = np.argsort(target_arr['number_of_peaks'])[::-1]
+        target_arr = target_arr[sorted_indices_desc][:num_top_x_peak_rich]
+
+        idx_arr_to_retain = np.append(idx_arr_to_retain, target_arr['index'])
+        idx_arr_to_retain.sort()
+        arr_to_retain = dset[np.isin(idx_arr, idx_arr_to_retain)]
+
+        del h5['filtered/metadata']
+        h5.flush()
+
+        h5.create_dataset('filtered/metadata', data=arr_to_retain, shape=arr_to_retain.shape, maxshape=(None,))
         h5.flush()
