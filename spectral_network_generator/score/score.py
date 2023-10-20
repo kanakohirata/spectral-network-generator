@@ -124,7 +124,7 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                 arr = np.hstack((last_arr, arr))
 
             LOGGER.debug(f'{_start_idx} - {_end_idx}, {arr.shape}')
-            idx_arr = arr[(arr['tag_a'] == b'sample') & (arr['tag_b'] == b'sample')]['index']
+            idx_arr = arr['index'][(arr['tag_a'] == b'sample') & (arr['tag_b'] == b'sample')]
             sample_vs_ref_mask = (arr['tag_a'] == b'sample') & (arr['tag_b'] == b'ref')
             ref_vs_sample_mask = (arr['tag_a'] == b'ref') & (arr['tag_b'] == b'sample')
             ref_vs_ref_mask = (arr['tag_a'] == b'ref') & (arr['tag_b'] == b'ref')
@@ -135,7 +135,7 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                 _arr = _arr[_sorted_indices]
                 _temp_arr = np.array(_arr[['global_accession_a', 'inchikey_b']].tolist())
                 _, _indices = np.unique(_temp_arr, axis=0, return_index=True)
-                idx_arr = np.append(idx_arr, _arr[_indices]['index'])
+                idx_arr = np.append(idx_arr, _arr['index'][_indices])
 
             if np.any(ref_vs_sample_mask):
                 _arr = arr[ref_vs_sample_mask]
@@ -143,7 +143,7 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                 _arr = _arr[_sorted_indices]
                 _temp_arr = np.array(_arr[['global_accession_b', 'inchikey_a']].tolist())
                 _, _indices = np.unique(_temp_arr, axis=0, return_index=True)
-                idx_arr = np.append(idx_arr, _arr[_indices]['index'])
+                idx_arr = np.append(idx_arr, _arr['index'][_indices])
 
             if np.any(ref_vs_ref_mask):
                 _arr = arr[ref_vs_ref_mask]
@@ -197,8 +197,8 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                         temp_arr = np.array(_arr[['inchikey_a', 'inchikey_b']].tolist())
                         temp_arr = np.sort(temp_arr, axis=1)
                         _, indices = np.unique(temp_arr, axis=0, return_index=True)
-                        arr = arr[np.isin(arr['index'], _arr[indices]['index'])]
-                        _clustered_arr = _clustered_arr[np.isin(_clustered_arr['index'], _arr[indices]['index'])]
+                        arr = arr[np.isin(arr['index'], _arr['index'][indices])]
+                        _clustered_arr = _clustered_arr[np.isin(_clustered_arr['index'], _arr['index'][indices])]
                         if '_temp' in h5.keys():
                             _dset = h5['_temp']
                             _dset.resize((_dset.len() + _clustered_arr.shape[0]), axis=0)
@@ -222,7 +222,7 @@ def clustering_based_on_inchikey(chunk_size=1000000):
                     temp_arr = np.sort(temp_arr, axis=1)
                     _, indices = np.unique(temp_arr, axis=0, return_index=True)
                     indices.sort()
-                    arr = arr[np.isin(arr['index'], arr[indices]['index'])]
+                    arr = arr[np.isin(arr['index'], arr['index'][indices])]
                     h5.create_dataset('_clustered_ref_score', data=arr, shape=arr.shape, maxshape=(None,))
                     h5.flush()
 

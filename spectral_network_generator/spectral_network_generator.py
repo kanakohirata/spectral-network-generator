@@ -3,8 +3,8 @@ import logging
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from filter.filter import filter_reference_spectra, remove_blank_spectra_from_sample_spectra
-from my_parser import read_metacyc_pathway_compound as read_meta
+from my_filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
+from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, load_and_serialize_spectra,
@@ -86,14 +86,41 @@ def generate_spectral_network(config_obj, _logger=None):
         report.info('start reading data files ...\n')
 
     for _path in config_obj.list_sample_file_path:
-        load_and_serialize_spectra(_path, 'sample', intensity_threshold=config_obj.remove_low_intensity_peaks)
+        _filename = os.path.basename(_path)
+        _is_introduce_random_mass_shift = False
+        if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
+            _is_introduce_random_mass_shift = True
+        load_and_serialize_spectra(_path, 'sample', intensity_threshold=config_obj.remove_low_intensity_peaks,
+                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
+                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
     for _path in config_obj.list_ref_file_path:
-        load_and_serialize_spectra(_path, 'ref', intensity_threshold=config_obj.remove_low_intensity_peaks)
+        _filename = os.path.basename(_path)
+        _is_introduce_random_mass_shift = False
+        if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
+            _is_introduce_random_mass_shift = True
+        load_and_serialize_spectra(_path, 'ref', intensity_threshold=config_obj.remove_low_intensity_peaks,
+                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
+                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
     for _path in config_obj.list_blank_file_path:
-        load_and_serialize_spectra(_path, 'blank', intensity_threshold=config_obj.remove_low_intensity_peaks)
+        _filename = os.path.basename(_path)
+        _is_introduce_random_mass_shift = False
+        if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
+            _is_introduce_random_mass_shift = True
+        load_and_serialize_spectra(_path, 'blank', intensity_threshold=config_obj.remove_low_intensity_peaks,
+                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
+                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
-    remove_blank_spectra_from_sample_spectra(config_obj)
+    remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)
 
     # ------------------------------------------------
     # Add external compound data to reference spectra
@@ -123,6 +150,14 @@ def generate_spectral_network(config_obj, _logger=None):
 
     report.info(f"\nfiles NOT to be filtered {str(config_obj.list_filename_avoid_filter)}\n")
     filter_reference_spectra(config_obj, report)
+
+    # ------------------------------------
+    # Extract top X peak rich spectra
+    # ------------------------------------
+    if config_obj.num_top_x_peak_rich:
+        for _filename in config_obj.list_sample_filename:
+            extract_top_x_prak_rich(_filename, config_obj.num_top_x_peak_rich)
+    
     serialize_filtered_spectra()
 
     # -------------------------------
