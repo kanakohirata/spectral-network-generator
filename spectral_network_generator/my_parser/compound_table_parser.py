@@ -195,12 +195,4 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
         return df.to_dict(orient='index')
     elif mode == 'df':
         return df
-
-
-if __name__ == '__main__':
-    # _d = read_compound_table('../compound_table/HMDB_metabolites_201912a11exported_wTax_compund_table.tsv', mode='list')
-
-    _d = read_multi_compound_table(['../compound_table/HMDB_metabolites_201912a11exported_wTax_compund_table.tsv',
-                                    '../compound_table/HMDB_metabolites_201912a11exported_wTax_compund_table.tsv'],
-                                   mode='df')
-    print(1)
+    

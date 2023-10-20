@@ -268,9 +268,9 @@ def filter_reference_spectra(config_obj, _logger=None):
                         mask_select_keyword = np.isin(keyword_arr, config_obj.list_ref_select_keyword)
                     
                     # to exclude --------------------------------------------------
-                    mask_exclud_keyword = _mask_all_true
+                    mask_exclude_keyword = _mask_all_true
                     if config_obj.list_ref_exclude_keyword and keyword_arr.size:
-                        mask_exclud_keyword = np.invert(np.isin(keyword_arr, config_obj.list_ref_exclude_keyword))
+                        mask_exclude_keyword = np.invert(np.isin(keyword_arr, config_obj.list_ref_exclude_keyword))
 
                     mask_all = (mask_author
                                 & mask_name
@@ -282,7 +282,7 @@ def filter_reference_spectra(config_obj, _logger=None):
                                 & mask_precursor_mass_exists
                                 & mask_compound
                                 & mask_select_keyword
-                                & mask_exclud_keyword).astype(bool)
+                                & mask_exclude_keyword).astype(bool)
 
                     filtered_ref_idx_arr = ref_arr['index'][mask_all]
                     idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)
@@ -306,7 +306,7 @@ def filter_reference_spectra(config_obj, _logger=None):
         h5.flush()
 
 
-def extract_top_x_prak_rich(filename, num_top_x_peak_rich, _logger=None):
+def extract_top_x_peak_rich(filename, num_top_x_peak_rich, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:

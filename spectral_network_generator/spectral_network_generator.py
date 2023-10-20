@@ -3,7 +3,7 @@ import logging
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from my_filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
+from my_filter import extract_top_x_peak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
@@ -156,14 +156,14 @@ def generate_spectral_network(config_obj, _logger=None):
     # ------------------------------------
     if config_obj.num_top_x_peak_rich:
         for _filename in config_obj.list_sample_filename:
-            extract_top_x_prak_rich(_filename, config_obj.num_top_x_peak_rich)
+            extract_top_x_peak_rich(_filename, config_obj.num_top_x_peak_rich)
     
     serialize_filtered_spectra()
 
     # -------------------------------
     # Calculate spectral similarity
     # -------------------------------
-    calculate_similarity_score(config_obj.mz_tol)
+    calculate_similarity_score(config_obj.mz_tol, config_obj.intensity_convert_mode)
     clustering_based_on_inchikey()
     add_cluster_id()
 
