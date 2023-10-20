@@ -61,7 +61,8 @@ class SpecNetGenConfig:
         self.mz_tol_to_remove_blank = 0
         self.rt_tol_to_remove_blank = 0
         self.remove_low_intensity_peaks = 0.0005
-        self.deisotope_int_ratio = 1
+        self.deisotope_int_ratio = 3
+        self.deisotope_mz_tol = 0
         self.topN_binned_ranges_topN_number = 10
         self.topN_binned_ranges_bin_size = 10
         self.intensity_convert_mode = 0
@@ -209,7 +210,7 @@ def read_config_file(path='./config.ini', _logger=None):
     if _min_number_of_peaks:
         my_config.min_number_of_peaks = int(_min_number_of_peaks)
         if my_config.min_number_of_peaks < 1:
-            raise ValueError(f'min_number_of_peaks must be > 1: {my_config.mmin_number_of_peaks}')
+            raise ValueError(f'min_number_of_peaks must be larger than or equal to 1: {my_config.mmin_number_of_peaks}')
 
     _list_compound_dat = inifile.get('filter', 'path_of_compound_dat_for_filter').split(',')
     my_config.list_path_compound_dat_for_filter = [_dat.strip() for _dat in _list_compound_dat if _dat.strip()]
@@ -227,7 +228,7 @@ def read_config_file(path='./config.ini', _logger=None):
     if _num_top_x_peak_rich:
         my_config.num_top_x_peak_rich= int(_num_top_x_peak_rich)
         if my_config.num_top_x_peak_rich < 0:
-            raise ValueError(f'num_top_X_peak_rich must be > 0: {my_config.num_top_x_peak_rich}')
+            raise ValueError(f'num_top_X_peak_rich must be larger than or equal to 0: {my_config.num_top_x_peak_rich}')
     else:
         my_config.num_top_x_peak_rich = 0
 
@@ -237,20 +238,30 @@ def read_config_file(path='./config.ini', _logger=None):
     list_mz_tol_to_remove_blank = [float(_value.strip()) for _value in _list_mz_tol_to_remove_blank if _value.strip()]
     for _t in list_mz_tol_to_remove_blank:
         if _t < 0:
-            raise ValueError(f'mz_tol_to_remove_blank must be > 0: {_t}')
+            raise ValueError(f'mz_tol_to_remove_blank must be larger than or equal to 0: {_t}')
 
     _list_rt_tol_to_remove_blank = inifile.get('spectrum processing', 'rt_tol_to_remove_blank').split(',')
     list_rt_tol_to_remove_blank = [float(_value.strip()) for _value in _list_rt_tol_to_remove_blank if _value.strip()]
     for _t in list_rt_tol_to_remove_blank:
         if _t < 0:
-            raise ValueError(f'rt_tol_to_remove_blank must be > 0: {_t}')
+            raise ValueError(f'rt_tol_to_remove_blank must be larger than  or equal to 0: {_t}')
 
     _list_remove_low_intensity_peaks = inifile.get('spectrum processing', 'remove_low_intensity_peaks').split(',')
     list_remove_low_intensity_peaks = [float(_value.strip()) for _value in _list_remove_low_intensity_peaks
                                        if _value.strip()]
+    for _i in list_remove_low_intensity_peaks:
+        if _i < 0 or _i > 1:
+            raise ValueError(f'remove_low_intensity_peaks must be in 0 to 1: {_i}')
 
     _list_deisotope_int_ratio = inifile.get('spectrum processing', 'deisotope_int_ratio').split(',')
     list_deisotope_int_ratio = [float(_value.strip()) for _value in _list_deisotope_int_ratio if _value.strip()]
+
+    _list_deisotope_mz_tol = inifile.get('spectrum processing', 'deisotope_mz_tol').split(',')
+    list_deisotope_mz_tol = [float(_value.strip()) for _value in _list_deisotope_mz_tol if _value.strip()]
+    for _t in list_deisotope_mz_tol:
+        if _t < 0:
+            raise ValueError(f'deisotope_mz_tol must be larger than or equal to 0: {_t}')
+
 
     _list_topN_binned_ranges_topN_number = inifile.get('spectrum processing',
                                                        'topN_binned_ranges_topN_number').split(',')
@@ -324,6 +335,7 @@ def read_config_file(path='./config.ini', _logger=None):
                       'rt_tol_to_remove_blank',
                       'remove_low_intensity_peaks',
                       'deisotope_int_ratio',
+                      'deisotope_mz_tol',
                       'topN_binned_ranges_topN_number',
                       'topN_binned_ranges_bin_size',
                       'intensity_convert_mode',
@@ -342,6 +354,7 @@ def read_config_file(path='./config.ini', _logger=None):
          rt_tol_to_remove_blank,
          remove_low_intensity_peaks,
          deisotope_int_ratio,
+         deisotope_mz_tol,
          topN_binned_ranges_topN_number,
          topN_binned_ranges_bin_size,
          intensity_convert_mode,
@@ -354,6 +367,7 @@ def read_config_file(path='./config.ini', _logger=None):
                              list_rt_tol_to_remove_blank,
                              list_remove_low_intensity_peaks,
                              list_deisotope_int_ratio,
+                             list_deisotope_mz_tol,
                              list_topN_binned_ranges_topN_number,
                              list_topN_binned_ranges_bin_size,
                              list_intensity_convert_mode,
@@ -370,6 +384,7 @@ def read_config_file(path='./config.ini', _logger=None):
             rt_tol_to_remove_blank,
             remove_low_intensity_peaks,
             deisotope_int_ratio,
+            deisotope_mz_tol,
             topN_binned_ranges_topN_number,
             topN_binned_ranges_bin_size,
             intensity_convert_mode,
@@ -388,6 +403,7 @@ def read_config_file(path='./config.ini', _logger=None):
         obj_config.rt_tol_to_remove_blank = rt_tol_to_remove_blank
         obj_config.remove_low_intensity_peaks = remove_low_intensity_peaks
         obj_config.deisotope_int_ratio = deisotope_int_ratio
+        obj_config.deisotope_mz_tol = deisotope_mz_tol
         obj_config.topN_binned_ranges_topN_number = topN_binned_ranges_topN_number
         obj_config.topN_binned_ranges_bin_size = topN_binned_ranges_bin_size
         obj_config.intensity_convert_mode = intensity_convert_mode
