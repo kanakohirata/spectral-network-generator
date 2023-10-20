@@ -63,14 +63,14 @@ class SpecNetGenConfig:
         self.remove_low_intensity_peaks = 0.0005
         self.deisotope_int_ratio = 3
         self.deisotope_mz_tol = 0
-        self.topN_binned_ranges_topN_number = 10
-        self.topN_binned_ranges_bin_size = 10
+        self.top_n_binned_ranges_top_n_number = 10
+        self.top_n_binned_ranges_bin_size = 10
         self.intensity_convert_mode = 0
 
         # matching related
         self.spec_matching_mode = 1
         self.mz_tol = 0
-        self.matching_top_N_input = 20
+        self.matching_top_n_input = 20
 
         self.score_threshold_to_output = 0
         self.minimum_peak_match_to_output = 0
@@ -263,14 +263,21 @@ def read_config_file(path='./config.ini', _logger=None):
             raise ValueError(f'deisotope_mz_tol must be larger than or equal to 0: {_t}')
 
 
-    _list_topN_binned_ranges_topN_number = inifile.get('spectrum processing',
+    _list_top_n_binned_ranges_top_n_number = inifile.get('spectrum processing',
                                                        'topN_binned_ranges_topN_number').split(',')
-    list_topN_binned_ranges_topN_number = [int(_value.strip()) for _value in _list_topN_binned_ranges_topN_number
+    list_top_n_binned_ranges_top_n_number = [int(_value.strip()) for _value in _list_top_n_binned_ranges_top_n_number
                                            if _value.strip()]
+    for _n in list_top_n_binned_ranges_top_n_number:
+        if _n <= 0:
+            raise ValueError(f'topN_binned_ranges_topN_number must be larger than 0: {_n}')
 
-    _list_topN_binned_ranges_bin_size = inifile.get('spectrum processing', 'topN_binned_ranges_bin_size').split(',')
-    list_topN_binned_ranges_bin_size = [int(_value.strip()) for _value in _list_topN_binned_ranges_bin_size
+    _list_top_n_binned_ranges_bin_size = inifile.get('spectrum processing', 'topN_binned_ranges_bin_size').split(',')
+    list_top_n_binned_ranges_bin_size = [float(_value.strip()) for _value in _list_top_n_binned_ranges_bin_size
                                         if _value.strip()]
+    for _n in list_top_n_binned_ranges_bin_size:
+        if _n <= 0:
+            raise ValueError(f'topN_binned_ranges_bin_size must be larger than 0: {_n}')
+    
     _list_intensity_convert_mode = inifile.get('spectrum processing', 'intensity_convert_mode').split(',')
     list_intensity_convert_mode = [int(_value.strip()) for _value in _list_intensity_convert_mode if _value.strip()]
 
@@ -284,8 +291,8 @@ def read_config_file(path='./config.ini', _logger=None):
     _list_mz_tol = inifile.get('peak matching related', 'mz_tol').split(',')
     list_mz_tol = [float(_value.strip()) for _value in _list_mz_tol if _value.strip()]
 
-    _list_matching_top_N_input = inifile.get('peak matching related', 'matching_top_N_input').split(',')
-    list_matching_top_N_input = [int(_value.strip()) for _value in _list_matching_top_N_input if _value.strip()]
+    _list_matching_top_n_input = inifile.get('peak matching related', 'matching_top_N_input').split(',')
+    list_matching_top_n_input = [int(_value.strip()) for _value in _list_matching_top_n_input if _value.strip()]
 
     # ------------------------------
     # [threshold] section
@@ -355,12 +362,12 @@ def read_config_file(path='./config.ini', _logger=None):
          remove_low_intensity_peaks,
          deisotope_int_ratio,
          deisotope_mz_tol,
-         topN_binned_ranges_topN_number,
-         topN_binned_ranges_bin_size,
+         top_n_binned_ranges_top_n_number,
+         top_n_binned_ranges_bin_size,
          intensity_convert_mode,
          spec_matching_mode,
          mz_tol,
-         matching_top_N_input,
+         matching_top_n_input,
          score_threshold_to_output,
          minimum_peak_match_to_output)\
         in itertools.product(list_mz_tol_to_remove_blank,
@@ -368,12 +375,12 @@ def read_config_file(path='./config.ini', _logger=None):
                              list_remove_low_intensity_peaks,
                              list_deisotope_int_ratio,
                              list_deisotope_mz_tol,
-                             list_topN_binned_ranges_topN_number,
-                             list_topN_binned_ranges_bin_size,
+                             list_top_n_binned_ranges_top_n_number,
+                             list_top_n_binned_ranges_bin_size,
                              list_intensity_convert_mode,
                              list_spec_matching_mode,
                              list_mz_tol,
-                             list_matching_top_N_input,
+                             list_matching_top_n_input,
                              list_score_threshold_to_output,
                              list_minimum_peak_match_to_output):
         idx_conf += 1
@@ -385,12 +392,12 @@ def read_config_file(path='./config.ini', _logger=None):
             remove_low_intensity_peaks,
             deisotope_int_ratio,
             deisotope_mz_tol,
-            topN_binned_ranges_topN_number,
-            topN_binned_ranges_bin_size,
+            top_n_binned_ranges_top_n_number,
+            top_n_binned_ranges_bin_size,
             intensity_convert_mode,
             spec_matching_mode,
             mz_tol,
-            matching_top_N_input,
+            matching_top_n_input,
             score_threshold_to_output,
             minimum_peak_match_to_output
         ]
@@ -404,12 +411,12 @@ def read_config_file(path='./config.ini', _logger=None):
         obj_config.remove_low_intensity_peaks = remove_low_intensity_peaks
         obj_config.deisotope_int_ratio = deisotope_int_ratio
         obj_config.deisotope_mz_tol = deisotope_mz_tol
-        obj_config.topN_binned_ranges_topN_number = topN_binned_ranges_topN_number
-        obj_config.topN_binned_ranges_bin_size = topN_binned_ranges_bin_size
+        obj_config.top_n_binned_ranges_top_n_number = top_n_binned_ranges_top_n_number
+        obj_config.top_n_binned_ranges_bin_size = top_n_binned_ranges_bin_size
         obj_config.intensity_convert_mode = intensity_convert_mode
         obj_config.spec_matching_mode = spec_matching_mode
         obj_config.mz_tol = mz_tol
-        obj_config.matching_top_N_input = matching_top_N_input
+        obj_config.matching_top_n_input = matching_top_n_input
         obj_config.score_threshold_to_output = score_threshold_to_output
         obj_config.minimum_peak_match_to_output = minimum_peak_match_to_output
         list_config.append(obj_config)

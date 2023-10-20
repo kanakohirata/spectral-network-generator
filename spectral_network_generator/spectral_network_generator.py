@@ -93,7 +93,9 @@ def generate_spectral_network(config_obj, _logger=None):
         load_and_serialize_spectra(_path, 'sample', intensity_threshold=config_obj.remove_low_intensity_peaks,
                                    is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol)
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
     for _path in config_obj.list_ref_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -102,7 +104,9 @@ def generate_spectral_network(config_obj, _logger=None):
         load_and_serialize_spectra(_path, 'ref', intensity_threshold=config_obj.remove_low_intensity_peaks,
                                    is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol)
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
     for _path in config_obj.list_blank_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -111,7 +115,9 @@ def generate_spectral_network(config_obj, _logger=None):
         load_and_serialize_spectra(_path, 'blank', intensity_threshold=config_obj.remove_low_intensity_peaks,
                                    is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol)
+                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)

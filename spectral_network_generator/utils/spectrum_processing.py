@@ -59,9 +59,7 @@ def deisotope(spectrum: Spectrum, mz_tolerance, intensiry_ratio, _logger=None):
     deisotoped_mz_arr = deisotoped_mz_arr[sorted_idx_arr]
     deisotoped_intensity_arr = deisotoped_intensity_arr[sorted_idx_arr]
 
-    new_spectrum = Spectrum(mz=deisotoped_mz_arr, intensities=deisotoped_intensity_arr, metadata=spectrum.metadata)
-    return new_spectrum
-
+    return Spectrum(mz=deisotoped_mz_arr, intensities=deisotoped_intensity_arr, metadata=spectrum.metadata)
 
 
 def introduce_random_delta_to_mz(spectrum: Spectrum, start:int, end:int, _logger=None):
@@ -94,6 +92,52 @@ def introduce_random_delta_to_mz(spectrum: Spectrum, start:int, end:int, _logger
     sorted_indices = np.argsort(mz_arr)
     mz_arr = mz_arr[sorted_indices]
     intensity_arr = spectrum.intensities[sorted_indices]
-    new_spectrum = Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
 
-    return new_spectrum   
+    return Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
+
+
+def set_top_n_most_intense_peaks_in_bin(spectrum:Spectrum, top_n:int, bin_range:float, _logger=None):
+
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    logger.debug(f'Keep {top_n} most intense peaks with bins of {bin_range} m/z')
+    if spectrum.mz.size <= top_n:
+        return spectrum
+    
+    top_n_peaks = []
+
+    highest_mz = spectrum.mz[-1]
+    n = 0
+    list_mz_segment = []
+    while n * bin_range <= highest_mz:
+        list_mz_segment.append(n * bin_range)
+        n += 1
+    list_mz_segment.append(highest_mz)
+
+    for n in range(1, len(list_mz_segment)):
+        list_peak_in_bin = []
+        # scan input peak list
+        for peak in spectrum.peaks:
+            if list_mz_segment[n-1] < peak[0] <= list_mz_segment[n]:
+                list_peak_in_bin.append(peak)
+            elif list_mz_segment[n] < peak[0]:
+                break
+
+        if len(list_peak_in_bin) > top_n:
+            # reverse sort by intensity
+            list_peak_in_bin.sort(key=lambda e:e[1], reverse=True)
+            list_peak_in_bin = list_peak_in_bin[:top_n]
+            list_peak_in_bin.sort(key=lambda e:e[0])
+
+        top_n_peaks.extend(list_peak_in_bin)
+
+    mz_values = [p[0] for p in top_n_peaks]
+    intensity_values = [p[1] for p in top_n_peaks]
+
+    mz_arr = np.array(mz_values)
+    intensity_arr = np.array(intensity_values)
+
+    return Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
