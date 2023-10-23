@@ -107,9 +107,30 @@ def set_intensity_in_log1p(spectrum:Spectrum, _logger=None):
     return Spectrum(mz=spectrum.mz, intensities=np.array(intensity_values), metadata=spectrum.metadata)
 
 
+def set_top_n_most_intense_peaks(spectrum:Spectrum, top_n:int, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    logger.debug(f'Keep {top_n} most intense peaks')
+
+    if spectrum.mz.size <= top_n:
+        return spectrum
+    
+    sorted_indices = np.argsort(spectrum.intensities)[::-1]
+
+    mz_arr = spectrum.mz[sorted_indices][:top_n]
+    intensity_arr = spectrum.intensities[sorted_indices][:top_n]
+
+    sorted_indices = np.argsort(mz_arr)
+    mz_arr = mz_arr[sorted_indices]
+    intensity_arr = intensity_arr[sorted_indices]
+
+    return Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
+
 
 def set_top_n_most_intense_peaks_in_bin(spectrum:Spectrum, top_n:int, bin_range:float, _logger=None):
-
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:

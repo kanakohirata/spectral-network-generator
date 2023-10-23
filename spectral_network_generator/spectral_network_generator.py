@@ -95,7 +95,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
     for _path in config_obj.list_ref_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -106,7 +107,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
     for _path in config_obj.list_blank_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -117,7 +119,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)

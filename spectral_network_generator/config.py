@@ -70,7 +70,7 @@ class SpecNetGenConfig:
         # matching related
         self.spec_matching_mode = 1
         self.mz_tol = 0
-        self.matching_top_n_input = 20
+        self.matching_top_n_input = -1
 
         self.score_threshold_to_output = 0
         self.minimum_peak_match_to_output = 0
@@ -295,6 +295,9 @@ def read_config_file(path='./config.ini', _logger=None):
 
     _list_matching_top_n_input = inifile.get('peak matching related', 'matching_top_N_input').split(',')
     list_matching_top_n_input = [int(_value.strip()) for _value in _list_matching_top_n_input if _value.strip()]
+    for _n in list_matching_top_n_input:
+        if _n <= 0 and _n != -1:
+            raise ValueError(f'matching_top_N_input must be larger than 0 or equal to -1: {_n}')
 
     # ------------------------------
     # [threshold] section
