@@ -11,6 +11,7 @@ import os
 import pickle
 import re
 from my_parser.score_parser import get_chunks, initialize_score_hdf5
+from utils.spectrum_processing import set_intensity_in_log1p
 
 
 LOGGER = getLogger(__name__)
@@ -25,17 +26,18 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def _calculate_similarity_score_with_cosine_greedy(references, queries, tolerance, _logger=None):
+def _calculate_similarity_score_with_cosine_greedy(references, queries, tolerance, mz_power=0, intensity_power=1, is_symmetric=False, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
         logger = LOGGER
 
     return calculate_scores(references=references, queries=queries,
-                            similarity_function=CosineGreedy(tolerance=tolerance))
+                            similarity_function=CosineGreedy(tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
+                            is_symmetric=is_symmetric)
 
 
-def calculate_similarity_score(tolerance, _logger=None):
+def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -43,20 +45,46 @@ def calculate_similarity_score(tolerance, _logger=None):
 
     initialize_score_hdf5()
 
+    intensity_convert_message = {0: 'do nothing', 2: 'log(1 + x)', 3: 'square root'}
+
+    if intensity_convert_mode == 3:
+        intensity_power = 0.5
+    elif intensity_convert_mode == 0 or intensity_convert_mode == 2:
+        intensity_power = 1
+    else:
+        intensity_power = 1
+        intensity_convert_message[intensity_convert_mode] = 'do nothing'
+
     pickle_paths = glob('./serialized_spectra/filtered/*.pickle')
     pickle_path_combinations = itertools.combinations_with_replacement(pickle_paths, 2)
     index = 0
     with h5py.File('./score.h5', 'a') as h5, h5py.File('./spectrum_metadata.h5', 'a') as h5_metadata:
         for pickle_path_a, pickle_path_b in pickle_path_combinations:
+            is_symmetric = False
+            if pickle_path_a == pickle_path_b:
+                is_symmetric = True
+            
             with open(pickle_path_a, 'rb') as f:
                 spectra_a = pickle.load(f)
 
-            with open(pickle_path_b, 'rb') as f:
-                spectra_b = pickle.load(f)
+            if is_symmetric:
+                spectra_b = spectra_a
+            else:
+                with open(pickle_path_b, 'rb') as f:
+                    spectra_b = pickle.load(f)
+            
+            if intensity_convert_mode == 2:
+                spectra_a = list(map(set_intensity_in_log1p, spectra_a))
+
+                if is_symmetric:
+                    spectra_b = spectra_a
+                else:
+                    spectra_b = list(map(set_intensity_in_log1p, spectra_b))
 
             logger.debug(f'Calculate spectral similarity using MatchMS.\n'
-                         f'{os.path.basename(pickle_path_a)} vs {os.path.basename(pickle_path_b)}')
-            scores = _calculate_similarity_score_with_cosine_greedy(spectra_a, spectra_b, tolerance)
+                         f'{os.path.basename(pickle_path_a)} vs {os.path.basename(pickle_path_b)}, intensity conversion: {intensity_convert_message[intensity_convert_mode]}')
+
+            scores = _calculate_similarity_score_with_cosine_greedy(spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
 
             # Get spectral metadata.
             spectrum_idx_start_a = int(re.findall(r'\d+', os.path.basename(pickle_path_a))[0])

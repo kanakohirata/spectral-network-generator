@@ -158,13 +158,13 @@ def filter_reference_spectra(config_obj, _logger=None):
 
         return result
 
-
     with h5py.File('./metacyc_for_filter.h5', 'r') as metacyc_h5:
         metacyc_dset = metacyc_h5['compound']
         if metacyc_dset.size:
             metacyc_inchikeys = metacyc_dset.fields('inchikey')[()].astype(str)
         else:
             metacyc_inchikeys = np.array([]).astype(str)
+
 
     with h5py.File('./spectrum_metadata.h5', 'a') as h5:
         for arr, chunk_start, chunk_end in get_chunks('filtered/metadata'):
@@ -268,10 +268,16 @@ def filter_reference_spectra(config_obj, _logger=None):
                         mask_select_keyword = np.isin(keyword_arr, config_obj.list_ref_select_keyword)
                     
                     # to exclude --------------------------------------------------
-                    mask_exclud_keyword = _mask_all_true
+                    mask_exclude_keyword = _mask_all_true
                     if config_obj.list_ref_exclude_keyword and keyword_arr.size:
-                        mask_exclud_keyword = np.invert(np.isin(keyword_arr, config_obj.list_ref_exclude_keyword))
+                        mask_exclude_keyword = np.invert(np.isin(keyword_arr, config_obj.list_ref_exclude_keyword))
 
+                    # external compound file filter -------------------------------
+                    mask_external_compound_file = _mask_all_true
+                    if config_obj.external_file_filter_mode:
+                        mask_external_compound_file = ref_arr['pathway_common_name_list'] != b''
+                    
+                    
                     mask_all = (mask_author
                                 & mask_name
                                 & mask_instrument_type
@@ -282,21 +288,23 @@ def filter_reference_spectra(config_obj, _logger=None):
                                 & mask_precursor_mass_exists
                                 & mask_compound
                                 & mask_select_keyword
-                                & mask_exclud_keyword).astype(bool)
+                                & mask_exclude_keyword
+                                & mask_external_compound_file).astype(bool)
 
                     filtered_ref_idx_arr = ref_arr['index'][mask_all]
                     idx_arr = np.append(sample_idx_arr, filtered_ref_idx_arr)
                     idx_arr = np.append(idx_arr, unfiltered_ref_idx_arr)
-
-            idx_arr.sort()
-            arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
-            if '_metadata' not in h5['filtered'].keys():
-                h5.create_dataset(f'filtered/_metadata', data=arr_to_retain,
-                                  shape=arr_to_retain.shape, maxshape=(None,))
-            else:
-                h5['filtered/_metadata'].resize(h5['filtered/_metadata'].len() + arr_to_retain.shape[0], axis=0)
-                h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain
-            h5.flush()
+            
+            if idx_arr.size:
+                idx_arr.sort()
+                arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
+                if '_metadata' not in h5['filtered'].keys():
+                    h5.create_dataset(f'filtered/_metadata', data=arr_to_retain,
+                                    shape=arr_to_retain.shape, maxshape=(None,))
+                else:
+                    h5['filtered/_metadata'].resize(h5['filtered/_metadata'].len() + arr_to_retain.shape[0], axis=0)
+                    h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain
+                h5.flush()
 
         del h5['filtered/metadata']
         h5.flush()
@@ -306,7 +314,7 @@ def filter_reference_spectra(config_obj, _logger=None):
         h5.flush()
 
 
-def extract_top_x_prak_rich(filename, num_top_x_peak_rich, _logger=None):
+def extract_top_x_peak_rich(filename, num_top_x_peak_rich, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:

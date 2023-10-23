@@ -152,7 +152,7 @@ def _parse_metadata(metadata:list):
 
     
 def convert_json_to_matchms_spectra(path, parameters_for_open=None):
-    """Read a MoNa JSON file and create a list of matchms.Spectum.
+    """Read a MoNa JSON file and create a list of matchms.Spectrum.
 
     Parameters
     ----------
@@ -162,7 +162,7 @@ def convert_json_to_matchms_spectra(path, parameters_for_open=None):
 
     Returns
     -------
-    list[matchms.Spectum]
+    list[matchms.Spectrum]
     """
     matchms_spectra = []
     parsed_spectra = read_json(path, parameters_for_open)

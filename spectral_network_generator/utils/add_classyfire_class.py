@@ -84,7 +84,3 @@ def add_classyfire_class(compound_table_paths):
         h5.flush()
         del h5['filtered/_metadata']
         h5.flush()
-
-
-if __name__ == '__main__':
-    add_classyfire_class(['../compound_table/HMDB_metabolites_201912a11exported_wTax_compund_table.tsv'])

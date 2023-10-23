@@ -3,7 +3,7 @@ import logging
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from my_filter import extract_top_x_prak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
+from my_filter import extract_top_x_peak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
@@ -95,7 +95,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
     for _path in config_obj.list_ref_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -106,7 +107,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
     for _path in config_obj.list_blank_file_path:
         _filename = os.path.basename(_path)
         _is_introduce_random_mass_shift = False
@@ -117,7 +119,8 @@ def generate_spectral_network(config_obj, _logger=None):
                                    deisotope_int_ratio=config_obj.deisotope_int_ratio,
                                    deisotope_mz_tol=config_obj.deisotope_mz_tol,
                                    binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size)
+                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
+                                   matching_top_n_input=config_obj.matching_top_n_input)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)
@@ -156,19 +159,19 @@ def generate_spectral_network(config_obj, _logger=None):
     # ------------------------------------
     if config_obj.num_top_x_peak_rich:
         for _filename in config_obj.list_sample_filename:
-            extract_top_x_prak_rich(_filename, config_obj.num_top_x_peak_rich)
+            extract_top_x_peak_rich(_filename, config_obj.num_top_x_peak_rich)
     
     serialize_filtered_spectra()
 
     # -------------------------------
     # Calculate spectral similarity
     # -------------------------------
-    calculate_similarity_score(config_obj.mz_tol)
+    calculate_similarity_score(config_obj.mz_tol, config_obj.intensity_convert_mode)
     clustering_based_on_inchikey()
     add_cluster_id()
 
     # -------
     # Output
     # -------
-    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.mz_tol)
+    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.minimum_peak_match_to_output, config_obj.mz_tol)
     write_cluster_attribute(cluster_attribute_path, config_obj.ref_split_category)

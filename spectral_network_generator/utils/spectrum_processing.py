@@ -15,7 +15,7 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def deisotope(spectrum: Spectrum, mz_tolerance, intensiry_ratio, _logger=None):
+def deisotope(spectrum: Spectrum, mz_tolerance, intensity_ratio, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -45,7 +45,7 @@ def deisotope(spectrum: Spectrum, mz_tolerance, intensiry_ratio, _logger=None):
             
             mz_current_target = math.fabs(original_mz_arr[idx - extend] - current_mz + 1)
             if (mz_current_target < mz_tolerance
-                and original_intensity_arr[idx - extend] >  current_intensity * intensiry_ratio):
+                and original_intensity_arr[idx - extend] >  current_intensity * intensity_ratio):
                 flag_to_be_removed =  True
                 break
 
@@ -96,8 +96,41 @@ def introduce_random_delta_to_mz(spectrum: Spectrum, start:int, end:int, _logger
     return Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
 
 
-def set_top_n_most_intense_peaks_in_bin(spectrum:Spectrum, top_n:int, bin_range:float, _logger=None):
+def set_intensity_in_log1p(spectrum:Spectrum, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
 
+    logger.debug('Convert intensity X to log(1 + X)')
+    intensity_values = list(map(math.log1p, spectrum.intensities))
+    return Spectrum(mz=spectrum.mz, intensities=np.array(intensity_values), metadata=spectrum.metadata)
+
+
+def set_top_n_most_intense_peaks(spectrum:Spectrum, top_n:int, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    logger.debug(f'Keep {top_n} most intense peaks')
+
+    if spectrum.mz.size <= top_n:
+        return spectrum
+    
+    sorted_indices = np.argsort(spectrum.intensities)[::-1]
+
+    mz_arr = spectrum.mz[sorted_indices][:top_n]
+    intensity_arr = spectrum.intensities[sorted_indices][:top_n]
+
+    sorted_indices = np.argsort(mz_arr)
+    mz_arr = mz_arr[sorted_indices]
+    intensity_arr = intensity_arr[sorted_indices]
+
+    return Spectrum(mz=mz_arr, intensities=intensity_arr, metadata=spectrum.metadata)
+
+
+def set_top_n_most_intense_peaks_in_bin(spectrum:Spectrum, top_n:int, bin_range:float, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:

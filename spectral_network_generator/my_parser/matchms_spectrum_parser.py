@@ -11,7 +11,9 @@ import pickle
 import re
 import time
 from my_parser.mona_parser import convert_json_to_matchms_spectra
-from utils.spectrum_processing import deisotope, introduce_random_delta_to_mz, set_top_n_most_intense_peaks_in_bin
+from utils.spectrum_processing import (deisotope, introduce_random_delta_to_mz,
+                                       set_top_n_most_intense_peaks,
+                                       set_top_n_most_intense_peaks_in_bin)
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -34,7 +36,8 @@ def delete_serialize_spectra_file():
 
 
 def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.001, is_introduce_random_mass_shift=False,
-                               deisotope_int_ratio=-1, deisotope_mz_tol=0, binning_top_n=0, binning_range=-1, _logger=None):
+                               deisotope_int_ratio=-1, deisotope_mz_tol=0, binning_top_n=0, binning_range=-1,
+                               matching_top_n_input=-1, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -94,6 +97,9 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
         if binning_range > 0:
             _s = set_top_n_most_intense_peaks_in_bin(_s, binning_top_n, binning_range)
 
+        if matching_top_n_input > 0:
+            set_top_n_most_intense_peaks(_s, matching_top_n_input)
+
         _s = normalize_intensities(_s)
         _s = add_retention_time(_s)
         _s = add_retention_index(_s)
@@ -136,13 +142,6 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
         str_peaks = ', '.join(map(lambda x: f'[{x[0]}, {x[1]}]', _s.peaks))
         str_peaks = '[' + str_peaks + ']'
         str_mz = '[' + ', '.join(map(lambda x: str(x), _s.mz)) + ']'
-
-        # if _s.get('kingdom'):
-        #     _k = _s.get('kingdom')
-        #     logger.debug(_k)
-        # if _s.get('alternative_parent'):
-        #     _a = _s.get('alternative_parent')
-        #     logger.debug(_a)
 
         spectrum_metadata_list.append((
             last_index,

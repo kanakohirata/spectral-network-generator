@@ -70,7 +70,7 @@ class SpecNetGenConfig:
         # matching related
         self.spec_matching_mode = 1
         self.mz_tol = 0
-        self.matching_top_n_input = 20
+        self.matching_top_n_input = -1
 
         self.score_threshold_to_output = 0
         self.minimum_peak_match_to_output = 0
@@ -210,7 +210,7 @@ def read_config_file(path='./config.ini', _logger=None):
     if _min_number_of_peaks:
         my_config.min_number_of_peaks = int(_min_number_of_peaks)
         if my_config.min_number_of_peaks < 1:
-            raise ValueError(f'min_number_of_peaks must be larger than or equal to 1: {my_config.mmin_number_of_peaks}')
+            raise ValueError(f'min_number_of_peaks must be larger than or equal to 1: {my_config.min_number_of_peaks}')
 
     _list_compound_dat = inifile.get('filter', 'path_of_compound_dat_for_filter').split(',')
     my_config.list_path_compound_dat_for_filter = [_dat.strip() for _dat in _list_compound_dat if _dat.strip()]
@@ -236,32 +236,34 @@ def read_config_file(path='./config.ini', _logger=None):
     # [spectrum processing] section
     _list_mz_tol_to_remove_blank = inifile.get('spectrum processing', 'mz_tol_to_remove_blank').split(',')
     list_mz_tol_to_remove_blank = [float(_value.strip()) for _value in _list_mz_tol_to_remove_blank if _value.strip()]
-    for _t in list_mz_tol_to_remove_blank:
-        if _t < 0:
-            raise ValueError(f'mz_tol_to_remove_blank must be larger than or equal to 0: {_t}')
+    for _n in list_mz_tol_to_remove_blank:
+        if _n < 0:
+            raise ValueError(f'mz_tol_to_remove_blank must be larger than or equal to 0: {_n}')
 
     _list_rt_tol_to_remove_blank = inifile.get('spectrum processing', 'rt_tol_to_remove_blank').split(',')
     list_rt_tol_to_remove_blank = [float(_value.strip()) for _value in _list_rt_tol_to_remove_blank if _value.strip()]
-    for _t in list_rt_tol_to_remove_blank:
-        if _t < 0:
-            raise ValueError(f'rt_tol_to_remove_blank must be larger than  or equal to 0: {_t}')
+    for _n in list_rt_tol_to_remove_blank:
+        if _n < 0:
+            raise ValueError(f'rt_tol_to_remove_blank must be larger than  or equal to 0: {_n}')
 
     _list_remove_low_intensity_peaks = inifile.get('spectrum processing', 'remove_low_intensity_peaks').split(',')
     list_remove_low_intensity_peaks = [float(_value.strip()) for _value in _list_remove_low_intensity_peaks
                                        if _value.strip()]
-    for _i in list_remove_low_intensity_peaks:
-        if _i < 0 or _i > 1:
-            raise ValueError(f'remove_low_intensity_peaks must be in 0 to 1: {_i}')
+    for _n in list_remove_low_intensity_peaks:
+        if _n < 0 or _n > 1:
+            raise ValueError(f'remove_low_intensity_peaks must be in 0 to 1: {_n}')
 
     _list_deisotope_int_ratio = inifile.get('spectrum processing', 'deisotope_int_ratio').split(',')
     list_deisotope_int_ratio = [float(_value.strip()) for _value in _list_deisotope_int_ratio if _value.strip()]
+    for _n in list_deisotope_int_ratio:
+        if _n <= 0 and _n != -1:
+            raise ValueError(f'deisotope_int_ratio must be larger than 0 or equal to -1: {_n}')    
 
     _list_deisotope_mz_tol = inifile.get('spectrum processing', 'deisotope_mz_tol').split(',')
     list_deisotope_mz_tol = [float(_value.strip()) for _value in _list_deisotope_mz_tol if _value.strip()]
-    for _t in list_deisotope_mz_tol:
-        if _t < 0:
-            raise ValueError(f'deisotope_mz_tol must be larger than or equal to 0: {_t}')
-
+    for _n in list_deisotope_mz_tol:
+        if _n < 0:
+            raise ValueError(f'deisotope_mz_tol must be larger than or equal to 0: {_n}')
 
     _list_top_n_binned_ranges_top_n_number = inifile.get('spectrum processing',
                                                        'topN_binned_ranges_topN_number').split(',')
@@ -275,8 +277,8 @@ def read_config_file(path='./config.ini', _logger=None):
     list_top_n_binned_ranges_bin_size = [float(_value.strip()) for _value in _list_top_n_binned_ranges_bin_size
                                         if _value.strip()]
     for _n in list_top_n_binned_ranges_bin_size:
-        if _n <= 0:
-            raise ValueError(f'topN_binned_ranges_bin_size must be larger than 0: {_n}')
+        if _n <= 0 and _n != -1:
+            raise ValueError(f'topN_binned_ranges_bin_size must be larger than 0 or equal to -1: {_n}')
     
     _list_intensity_convert_mode = inifile.get('spectrum processing', 'intensity_convert_mode').split(',')
     list_intensity_convert_mode = [int(_value.strip()) for _value in _list_intensity_convert_mode if _value.strip()]
@@ -293,6 +295,9 @@ def read_config_file(path='./config.ini', _logger=None):
 
     _list_matching_top_n_input = inifile.get('peak matching related', 'matching_top_N_input').split(',')
     list_matching_top_n_input = [int(_value.strip()) for _value in _list_matching_top_n_input if _value.strip()]
+    for _n in list_matching_top_n_input:
+        if _n <= 0 and _n != -1:
+            raise ValueError(f'matching_top_N_input must be larger than 0 or equal to -1: {_n}')
 
     # ------------------------------
     # [threshold] section
