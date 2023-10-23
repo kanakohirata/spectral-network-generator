@@ -173,5 +173,5 @@ def generate_spectral_network(config_obj, _logger=None):
     # -------
     # Output
     # -------
-    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.mz_tol)
+    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.minimum_peak_match_to_output, config_obj.mz_tol)
     write_cluster_attribute(cluster_attribute_path, config_obj.ref_split_category)

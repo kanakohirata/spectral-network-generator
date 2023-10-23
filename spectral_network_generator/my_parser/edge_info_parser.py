@@ -15,7 +15,7 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def write_edge_info(path, score_threshold, mz_tolerance):
+def write_edge_info(path, score_threshold, minimum_peak_match_to_output, mz_tolerance):
     with h5py.File('./spectrum_metadata.h5', 'r') as h5_meta:
         dset_meta = h5_meta['filtered/metadata']
         df_meta = pd.DataFrame.from_records(dset_meta[()][[
@@ -89,7 +89,7 @@ def write_edge_info(path, score_threshold, mz_tolerance):
 
         for arr, chunk_start, chunk_end in get_chunks('clustered_score', db_chunk_size=10000, path='./score.h5'):
             LOGGER.debug(f'Write edge info: {chunk_start} - {chunk_end}')
-            arr = arr[arr['score'] >= score_threshold]
+            arr = arr[(arr['score'] >= score_threshold) & (arr['matches'] >= minimum_peak_match_to_output)]
 
             if not arr.size:
                 continue
