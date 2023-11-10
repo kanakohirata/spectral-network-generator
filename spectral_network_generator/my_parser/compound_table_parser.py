@@ -43,27 +43,7 @@ def read_multi_compound_table(paths, mode='dict'):
         if not all_compounds:
             all_compounds = _compounds
         else:
-            for _inchikey, _info in _compounds.items():
-                if _inchikey in all_compounds:
-                    all_compounds[_inchikey]['list_cas_rn'] = list(set(
-                        all_compounds[_inchikey]['list_cas_rn'] + _info['list_cas_rn']))
-
-                    all_compounds[_inchikey]['list_hmdb_id'] = list(set(
-                        all_compounds[_inchikey]['list_hmdb_id'] + _info['list_hmdb_id']))
-
-                    all_compounds[_inchikey]['list_cmpd_classification_superclass'] = list(set(
-                        all_compounds[_inchikey]['list_cmpd_classification_superclass']
-                        + _info['list_cmpd_classification_superclass']))
-
-                    all_compounds[_inchikey]['list_cmpd_classification_class'] = list(set(
-                        all_compounds[_inchikey]['list_cmpd_classification_class']
-                        + _info['list_cmpd_classification_class']))
-
-                    all_compounds[_inchikey]['list_cmpd_classification_subclass'] = list(set(
-                        all_compounds[_inchikey]['list_cmpd_classification_subclass']
-                        + _info['list_cmpd_classification_subclass']))
-                else:
-                    all_compounds[_inchikey] = _info
+            all_compounds = {**all_compounds, **_compounds}
 
     if mode == 'dict':
         return all_compounds
@@ -98,30 +78,36 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
     """
     df = pd.read_csv(path, delimiter=delimiter, index_col=None, on_bad_lines='skip')
 
+    columns_to_lower = {}
+    for column_name in df.columns:
+        columns_to_lower[column_name] = column_name.lower().replace(' ', '_')
+
+    df.rename(columns=columns_to_lower, inplace=True)
+
     columns_to_rename = {}
     columns_to_use = []
     for column_name in df.columns:
-        if column_name in ['CAS RN', 'CAS rn', 'CAS_rn', 'CAS no', 'CAS NO']:
+        if column_name in ['cas_rn', 'cas_no', 'cas_registry_number']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_cas_rn'
             columns_to_use.append('list_cas_rn')
-        elif column_name in ['DBID', 'DB_ID', 'DB ID']:
+        elif column_name in ['dbid', 'db_id']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'db_id'
             columns_to_use.append('db_id')
-        elif column_name in ['HMDBID', 'HMDB_ID', 'HMDB ID']:
+        elif column_name in ['hmdbid', 'hmdb_id']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_hmdb_id'
             columns_to_use.append('list_hmdb_id')
-        elif column_name in ['InChI', 'inchi', 'INCHI', 'InChi']:
+        elif column_name == 'inchi':
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'inchi'
             columns_to_use.append('inchi')
-        elif column_name in ['InChIKey', 'inchikey', 'inchi_key', 'INCHIKEY', 'INCHI_KEY']:
+        elif column_name in ['inchikey', 'inchi_key']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'inchikey'
@@ -133,39 +119,34 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'formula'
             columns_to_use.append('formula')
-        elif column_name in ['monoisotopic mass', 'monoisotopic_mass', 'MONOISOTOPIC_MASS', 'MONOISOTOPIC MASS',
-                             'exact mass', 'exact_mass', 'EXACT_MASS', 'EXACT MASS']:
+        elif column_name in ['monoisotopic_mass', 'exact_mass']:
             df[column_name].astype(float)
             df[column_name].fillna(0.0, inplace=True)
             columns_to_rename[column_name] = 'exact_mass'
             columns_to_use.append('exact_mass')
-        elif column_name in ['NAME', 'name', 'COMMON_NAME', 'common name']:
+        elif column_name in ['name', 'common_name']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'name'
             columns_to_use.append('name')
         # chemical taxonomy
-        elif column_name in ['Classyfire_superclass', 'superclass', 'SUPERCLASS']:
+        elif column_name in ['classyfire_superclass', 'superclass']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_cmpd_classification_superclass'
             columns_to_use.append('list_cmpd_classification_superclass')
-        elif column_name in ['Classyfire_class', 'class', 'CLASS']:
+        elif column_name in ['classyfire_class', 'class']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_cmpd_classification_class'
             columns_to_use.append('list_cmpd_classification_class')
-        elif column_name in ['Classyfire_subclass', 'subclass', 'SUBCLASS']:
+        elif column_name in ['classyfire_subclass', 'subclass']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'list_cmpd_classification_subclass'
             columns_to_use.append('list_cmpd_classification_subclass')
 
-    if ('inchikey' not in columns_to_use
-            or 'inchi'not in columns_to_use
-            or 'exact_mass' not in columns_to_use
-            or 'formula' not in columns_to_use):
-
+    if 'inchikey' not in columns_to_use:
         raise ValueError(f'Column name is not correct: {path}\n'
                          f'\tcolumns: {df.columns}')
 

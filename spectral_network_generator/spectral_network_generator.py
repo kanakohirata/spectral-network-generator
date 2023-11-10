@@ -12,7 +12,7 @@ from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, lo
 from my_parser.score_parser import initialize_score_hdf5
 from my_parser.spectrum_metadata_parser import initialize_spectrum_metadata_hdf5
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
-from utils import add_classyfire_class, add_metacyc_compound_info
+from utils import add_compound_info, add_metacyc_compound_info
 from utils.clustering import add_cluster_id
 
 
@@ -129,7 +129,7 @@ def generate_spectral_network(config_obj, _logger=None):
     # Add external compound data to reference spectra
     # ------------------------------------------------
     if config_obj.compound_table_paths:
-        add_classyfire_class(config_obj.compound_table_paths)
+        add_compound_info(config_obj.compound_table_paths)
 
     if config_obj.metacyc_cmpd_dat_path:
         read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',

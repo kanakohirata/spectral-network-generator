@@ -142,7 +142,7 @@ def write_cluster_attribute(path, ref_split_category):
         # 'UNIQUE_LEVEL', 'PEAK_LIST_MZ_ANNOID' and 'DIC_ANNOID_STRUCT' are not working.
         df_meta_unique['UNIQUE_LEVEL'] = -1
         df_meta_unique['PEAK_LIST_MZ_ANNOID'] = '[]'
-        df_meta_unique['DIC_ANNOID_STRUCT'] = '[]'
+        df_meta_unique['DIC_ANNOID_STRUCT'] = '{}'
 
         df_meta_unique.rename(inplace=True,
                               columns={

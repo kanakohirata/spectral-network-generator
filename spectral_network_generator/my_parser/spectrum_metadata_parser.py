@@ -26,12 +26,21 @@ def get_chunks(key, db_chunk_size=10000, path='./spectrum_metadata.h5', change_s
 
     with h5py.File(path, 'r') as h5:
         dset = h5[key]
-        dtype = [('tag', 'u8'), ('tag', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
-                 ('accession_number', H5PY_STR_TYPE), ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
+        dtype = [('index', 'u8'), ('tag', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+                 ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
+                 ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
                  ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),
-                 ('author', H5PY_STR_TYPE), ('compound_name', H5PY_STR_TYPE), ('instrument_type', H5PY_STR_TYPE),
-                 ('ionization_mode', H5PY_STR_TYPE), ('fragmentation_type', H5PY_STR_TYPE),
-                 ('precursor_type', H5PY_STR_TYPE), ('number_of_peaks', 'u8')]
+                 ('author', H5PY_STR_TYPE), ('compound_name', H5PY_STR_TYPE), ('title', H5PY_STR_TYPE),
+                 ('instrument_type', H5PY_STR_TYPE), ('ionization_mode', H5PY_STR_TYPE),
+                 ('fragmentation_type', H5PY_STR_TYPE), ('precursor_type', H5PY_STR_TYPE),
+                 ('number_of_peaks', 'u8'), ('peaks', H5PY_STR_TYPE), ('mz_list', H5PY_STR_TYPE),
+                 ('external_compound_unique_id_list', H5PY_STR_TYPE),
+                 ('pathway_unique_id_list', H5PY_STR_TYPE),
+                 ('pathway_common_name_list', H5PY_STR_TYPE),
+                 ('cmpd_classification_superclass_list', H5PY_STR_TYPE),
+                 ('cmpd_classification_class_list', H5PY_STR_TYPE),
+                 ('cmpd_classification_subclass_list', H5PY_STR_TYPE),
+                 ('cmpd_classification_alternative_parent_list', H5PY_STR_TYPE)]
 
         if db_chunk_size:
             chunk_num = int(dset.size / db_chunk_size) + 1
