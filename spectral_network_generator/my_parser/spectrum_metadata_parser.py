@@ -8,7 +8,7 @@ def initialize_spectrum_metadata_hdf5():
         h5.create_group('filtered')
 
 
-def get_chunks(key, db_chunk_size=10000, change_str_dtype=False):
+def get_chunks(key, db_chunk_size=10000, path='./spectrum_metadata.h5', change_str_dtype=False):
     """
     Parameters
     ----------
@@ -24,7 +24,7 @@ def get_chunks(key, db_chunk_size=10000, change_str_dtype=False):
     Iterator[numpy.array]
     """
 
-    with h5py.File('./spectrum_metadata.h5', 'r') as h5:
+    with h5py.File(path, 'r') as h5:
         dset = h5[key]
         dtype = [('tag', 'u8'), ('tag', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
                  ('accession_number', H5PY_STR_TYPE), ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
