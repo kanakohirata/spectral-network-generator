@@ -98,7 +98,7 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
             _s = set_top_n_most_intense_peaks_in_bin(_s, binning_top_n, binning_range)
 
         if matching_top_n_input > 0:
-            set_top_n_most_intense_peaks(_s, matching_top_n_input)
+            _s = set_top_n_most_intense_peaks(_s, matching_top_n_input)
 
         _s = normalize_intensities(_s)
         _s = add_retention_time(_s)
