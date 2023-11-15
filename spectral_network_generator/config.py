@@ -145,20 +145,22 @@ def read_config_file(path='./config.ini', _logger=None):
                 my_config.list_ref_filename.append(os.path.basename(_path))
 
     my_config.input_blank_folder_path = inifile.get('input', 'input_blank_folder_path')
-    if not os.path.isdir(my_config.input_blank_folder_path):
+    if my_config.input_blank_folder_path and not os.path.isdir(my_config.input_blank_folder_path):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_blank_folder_path)
 
     _list_input_blank_extension = inifile.get('input', 'input_ref_extension').split(',')
     _list_input_blank_extension = [_e for _e in _list_input_blank_extension if _e]
     if not _list_input_blank_extension:
         _list_input_blank_extension = ['msp', 'mgf', 'json']
-    for _ext in _list_input_blank_extension:
-        _ext = _ext.strip()
-        _ext = _ext.lstrip('.')
-        if _ext:
-            for _path in glob(f'{my_config.input_blank_folder_path}/*.{_ext}'):
-                my_config.list_blank_file_path.append(_path)
-                my_config.list_blank_filename.append(os.path.basename(_path))
+
+    if my_config.input_blank_folder_path:
+        for _ext in _list_input_blank_extension:
+            _ext = _ext.strip()
+            _ext = _ext.lstrip('.')
+            if _ext:
+                for _path in glob(f'{my_config.input_blank_folder_path}/*.{_ext}'):
+                    my_config.list_blank_file_path.append(_path)
+                    my_config.list_blank_filename.append(os.path.basename(_path))
 
     _list_ref_spec_filename = inifile.get('input', 'ref_spec_filename').split(',')
     for _filename in _list_ref_spec_filename:
