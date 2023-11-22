@@ -124,6 +124,17 @@ def write_cluster_attribute(path, ref_split_category):
 
         df_meta = pd.merge(df_meta, df_cluster_id, on='global_accession', how='left')
 
+        # Fill empty "cluster_id" of sample
+        df_meta.loc[(df_meta['tag'] == 'sample') & (pd.isna(df_meta['cluster_id'])), 'cluster_id'] = df_meta['global_accession']
+
+        # Fill empty "cluster_id" of reference
+        for idx, row in df_meta[(df_meta['tag'] == 'ref') & (pd.isna(df_meta['cluster_id']))].iterrows():
+            if row['inchikey']:
+                _df_same_inchikey = df_meta[(df_meta['tag'] == 'ref') & (df_meta['inchikey'] == row['inchikey']) & (~pd.isna(df_meta['cluster_id']))]
+
+                if len(_df_same_inchikey):
+                    df_meta.at[idx, 'cluster_id'] = _df_same_inchikey.iloc[0]['cluster_id']
+
         df_meta['NUMBER_OF_SPECTRA'] = 1
         df_meta['LIST_ACCESSION_NUMBERS'] = df_meta['accession_number']
 
