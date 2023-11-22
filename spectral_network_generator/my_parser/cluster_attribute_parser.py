@@ -47,7 +47,16 @@ def write_cluster_attribute(path, ref_split_category):
     LOGGER.debug(f'Write cluster attribute: {path}')
     arr = None
     for _arr, chunk_start, chunk_end in get_chunks('clustered_score', db_chunk_size=1000000, path='./score.h5'):
-        _arr = _arr[_arr['inchikey_b'] != b''][['inchikey_b', 'cluster_id_b']]
+        _arr_a = _arr[['global_accession_a', 'cluster_id_a']]
+        _arr_b = _arr[['global_accession_b', 'cluster_id_b']]
+
+        _arr_a = np.unique(_arr_a)
+        _arr_b = np.unique(_arr_b)
+
+        _arr_a = _arr_a.astype([('global_accession', 'O'), ('cluster_id', 'O')])
+        _arr_b = _arr_b.astype([('global_accession', 'O'), ('cluster_id', 'O')])
+
+        _arr = np.hstack((_arr_a, _arr_b))
 
         if arr is None:
             arr = np.unique(_arr)
@@ -56,8 +65,7 @@ def write_cluster_attribute(path, ref_split_category):
             arr = np.unique(_arr)
 
     df_cluster_id = pd.DataFrame.from_records(arr)
-    df_cluster_id.rename(columns={'inchikey_b': 'inchikey', 'cluster_id_b': 'cluster_id'}, inplace=True)
-    df_cluster_id['inchikey'] = df_cluster_id['inchikey'].str.decode('utf-8')
+    df_cluster_id['global_accession'] = df_cluster_id['global_accession'].str.decode('utf-8')
     df_cluster_id['cluster_id'] = df_cluster_id['cluster_id'].str.decode('utf-8')
 
     with h5py.File('./spectrum_metadata.h5', 'r') as h5_meta:
@@ -114,8 +122,7 @@ def write_cluster_attribute(path, ref_split_category):
                             if s in ('Homogeneous non-metal compounds', 'Mixed metal/non-metal compounds')
                             else 'Organic compounds' for s in sl])
 
-        df_meta = pd.merge(df_meta, df_cluster_id, on='inchikey', how='left')
-        df_meta['cluster_id'].fillna(df_meta['global_accession'], inplace=True)
+        df_meta = pd.merge(df_meta, df_cluster_id, on='global_accession', how='left')
 
         df_meta['NUMBER_OF_SPECTRA'] = 1
         df_meta['LIST_ACCESSION_NUMBERS'] = df_meta['accession_number']
