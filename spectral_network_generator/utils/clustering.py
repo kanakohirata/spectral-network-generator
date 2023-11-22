@@ -24,8 +24,8 @@ def add_cluster_id(score_path='./score.h5'):
         mask_b = (dset.fields('tag_b')[()] != b'ref') & (dset.fields('inchikey_b')[()] != b'')
         inchikey_arr_a = dset.fields('inchikey_a')
         inchikey_arr_b = dset.fields('inchikey_b')
-        df = pd.DataFrame(dset[()][['global_accession_a', 'global_accession_b', 'inchikey_a', 'inchikey_b']],
-                          columns=['global_accession_a', 'global_accession_b', 'inchikey_a', 'inchikey_b'])
+        df = pd.DataFrame(dset[()][['tag_a', 'tag_b', 'global_accession_a', 'global_accession_b', 'inchikey_a', 'inchikey_b']],
+                          columns=['tag_a', 'tag_b', 'global_accession_a', 'global_accession_b', 'inchikey_a', 'inchikey_b'])
         
         # Get unique inchikeys of reference and create their cluster ids.
         inchikey_arr = np.unique(np.hstack((inchikey_arr_a[mask_a], inchikey_arr_b[mask_b]))).astype('S')
