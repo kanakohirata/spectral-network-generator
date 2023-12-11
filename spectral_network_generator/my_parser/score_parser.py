@@ -1,4 +1,9 @@
 import h5py
+import numpy as np
+import os
+import re
+import shutil
+
 
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
@@ -6,6 +11,18 @@ H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 def initialize_score_hdf5(path='./score.h5'):
     with h5py.File(path, 'w') as h5:
         pass
+
+
+def delete_score_files(scores_dir='./scores', clustered_scores_dir='./scores/clustered_scores'):
+    for f in os.listdir(scores_dir):
+        p = os.path.join(scores_dir, f)
+        if os.path.isfile(p):
+            os.remove(p)
+
+    for f in os.listdir(clustered_scores_dir):
+        p = os.path.join(clustered_scores_dir, f)
+        if os.path.isfile(p):
+            os.remove(p)
 
 
 def get_chunks(key, db_chunk_size=10000, path='./score.h5'):
@@ -38,3 +55,162 @@ def get_chunks(key, db_chunk_size=10000, path='./score.h5'):
             end = db_chunk_size * (i + 1)
 
             yield dset[start:end], start, end
+
+
+def iter_score_array(dir_path='./scores', return_path=True, return_index=True):
+    score_paths = []
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and re.match(r'\d+-\d+_vs_\d+-\d+\.npy', filename):
+            
+            indexes_a, indexes_b = filename.split('_vs_')
+            idx_a = int(indexes_a.split('-')[0])
+            idx_b = int(indexes_b.split('-')[0])
+
+            score_paths.append((path, idx_a, idx_b))
+
+    if not score_paths:
+        if return_path and return_index:
+            return None, None, None, None
+        elif return_path:
+            return None, None
+        elif return_index:
+            return None, None, None
+        else:
+            return None
+    
+    score_paths.sort(key=lambda x: (x[1], x[2]))
+
+    for path, idx_a, idx_b in score_paths:
+        arr = np.load(path)
+
+        if return_path and return_index:
+            yield arr, path, idx_a, idx_b
+        elif return_path:
+            yield arr, path
+        elif return_index:
+            yield arr, idx_a, idx_b
+        else:
+            yield arr
+
+
+def iter_clustered_score_array(dir_path='./scores/clustered_scores', return_path=True, return_index=True):
+    score_paths = []
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and re.match(r'\d+\.npy', filename):  
+            idx = int(os.path.splitext(filename)[0])
+            score_paths.append((path, idx))
+
+    if not score_paths:
+        if return_path and return_index:
+            return None, None, None
+        elif return_path or return_index:
+            return None, None
+        else:
+            return None
+
+    score_paths.sort(key=lambda x: x[1])
+
+    for path, idx in score_paths:
+        arr = np.load(path)
+
+        if return_path and return_index:
+            yield arr, path, idx
+        elif return_path:
+            yield arr, path
+        elif return_index:
+            yield arr, idx
+        else:
+            yield arr
+
+
+def adjust_string_length(data, max_lengths):
+    adjusted_data = np.copy(data)
+
+    dtype = [('index', 'u8'),
+             ('cluster_index_a', 'u8'), ('cluster_index_b', 'u8'),
+             ('index_a', 'u8'), ('index_b', 'u8'),
+             ('score', 'f2'), ('matches', 'u2'),
+             ('cluster_id_a', f'S{max_lengths["cluster_id_a"]}'),
+             ('cluster_id_b', f'S{max_lengths["cluster_id_b"]}')]
+    
+    adjusted_data = adjusted_data.astype(dtype)
+
+    return adjusted_data
+
+
+def resize_clustered_score_file(row_size, dir_path='./scores/clustered_scores'):
+    # Make "temp" folder and move score files to the folder.
+    temp_folder = os.path.join(dir_path, 'temp')
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+
+    score_filenames = [f for f in os.listdir(dir_path) if re.match(r'\d+\.npy', f)]
+    score_paths = []
+    for filename in score_filenames:
+        shutil.move(os.path.join(dir_path, filename), temp_folder)
+
+        # Get new path
+        path = os.path.join(temp_folder, filename)
+        idx = int(os.path.splitext(filename)[0])
+        score_paths.append((path, idx))
+    
+    score_paths.sort(key=lambda x: x[1])
+    
+    max_length_of_cluster_id = 0
+
+    buffer = None
+    first_index = 0
+    max_lengths = {'cluster_id_a': 0, 'cluster_id_b': 0}
+
+    for path, idx in score_paths:
+        arr = np.load(path)
+
+        for col in ['cluster_id_a', 'cluster_id_b']:
+            max_length = max(arr[col].astype(str), key=len)
+            max_lengths[col] = max(max_lengths[col], len(max_length))
+
+        if buffer:
+            arr = adjust_string_length(arr, max_lengths)
+            buffer = adjust_string_length(buffer, max_lengths)
+            arr = np.concatenate((buffer, arr))
+
+        chunk_num = arr.shape[0] // row_size
+        for i in range(chunk_num):
+            split_arr = arr[i * row_size:(i+1) * row_size]
+            split_file_path = os.path.join(dir_path, f'{first_index}.npy')
+            np.save(split_file_path, split_arr)
+            first_index += row_size
+
+        remainder = arr.shape[0] % row_size
+        if remainder:
+            buffer = arr[-remainder]
+        else:
+            buffer = None
+    
+    if buffer:
+        split_file_path = os.path.join(dir_path, f'{first_index}.npy')
+        np.save(split_file_path, split_arr)
+
+    # Remove "temp" folder
+    shutil.rmtree(temp_folder)
+
+
+def split_array(arr, row_size):
+    if arr.shape[0] <= row_size:
+        yield arr
+
+    else:
+        chunk_num = arr.shape[0] // row_size
+        for i in range(chunk_num):
+            split_arr = arr[i * row_size:(i+1) * row_size]
+            yield split_arr
+        
+        remainder = arr.shape[0] % row_size
+        yield arr[-remainder]
+    
+                
+
+
+

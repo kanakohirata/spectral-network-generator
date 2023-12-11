@@ -1,19 +1,9 @@
+from copy import deepcopy
 import json
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 import os
 import re
-from my_filter import filter_reference_spectra, remove_blank_spectra_from_sample_spectra
-from my_parser import metacyc_parser as read_meta
-from my_parser.cluster_attribute_parser import write_cluster_attribute
-from my_parser.edge_info_parser import write_edge_info
-from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, load_and_serialize_spectra,
-                                               serialize_filtered_spectra)
-from my_parser.score_parser import initialize_score_hdf5
-from my_parser.spectrum_metadata_parser import initialize_spectrum_metadata_hdf5
-from score.score import calculate_similarity_score, clustering_based_on_inchikey
-from utils import add_classyfire_class, add_metacyc_compound_info
-from utils.clustering import add_cluster_id
 
 
 LOGGER = getLogger(__name__)
@@ -26,7 +16,92 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def convert_cfm_to_json(dir_path, output_path):
+def _convert_string_peaks_to_floats(peaks):
+    peaks = list(map(lambda x: [float(x[0]), float(x[1])], peaks))
+    peaks.sort(key=lambda x: x[0])
+
+    return peaks
+
+
+def _merge_peaks(base_peaks, array_of_peaks, intensity=None):
+    base_mzs = [p[0] for p in base_peaks]
+    base_intensities = [float(p[1]) for p in base_peaks]
+    
+    if intensity:
+        intensity_to_add = intensity
+    else:
+        intensity_to_add = np.median(base_intensities)
+
+    
+
+    for peaks in array_of_peaks:
+        for mz, intensity in peaks:
+            if mz not in base_mzs:
+                base_peaks.append((mz, intensity_to_add))
+                base_mzs.append(mz)
+    
+    return base_peaks
+
+
+def read_cfm_result(path, is_convert_energies):
+    spectra = []
+    spectrum_meta = {}
+    peaks_energy0 = []
+    peaks_energy1 = []
+    peaks_energy2 = []
+    list_of_peaks_to_export = []
+    flag_energy = -1
+    with open(path, 'r') as f:
+        for line in f:
+            line = line.rstrip()
+            if line.startswith('#'):
+                _parse_metadata(line, spectrum_meta)
+
+            elif line == 'energy0':
+                flag_energy = 0
+            elif line == 'energy1':
+                flag_energy = 1
+            elif line == 'energy2':
+                flag_energy = 2
+
+            elif re.match(r'(\d+\.\d+) (\d+\.\d+)', line):
+                mz, intensity = re.match(r'(\d+\.\d+) (\d+\.\d+)', line).groups()[:2]
+                
+                if flag_energy == 0:
+                    peaks_energy0.append((mz, intensity))
+                elif flag_energy == 1:
+                    peaks_energy1.append((mz, intensity))
+                elif flag_energy == 2:
+                    peaks_energy2.append((mz, intensity))
+
+            elif not line:
+                break
+
+        if spectrum_meta.get('Adduct'):
+            if spectrum_meta['Adduct'] in ('[M+H]+','[M]+','[M+NH4]+','[M+Na]+','[M+K]+','[M+Li]+'):
+                    spectrum_meta['Ion_Mode'] = 'Positive'
+            elif spectrum_meta['Adduct'] in ('[M-H]-','[M]-','[M+Cl]-','[M+HCOOH-H]-','[M+CH3COOH-H]-','[M-2H]2-'):
+                spectrum_meta['Ion_Mode'] = 'Negative'
+
+        if is_convert_energies:
+            peaks_energy2 = _merge_peaks(peaks_energy2, (peaks_energy0, peaks_energy1))
+            list_of_peaks_to_export.append((peaks_energy2, 'merged_energy'))
+        else:
+            list_of_peaks_to_export.extend([(peaks_energy0, 'energy0'), (peaks_energy1, 'energy1'), (peaks_energy2, 'energy2')])
+
+        for peaks, energy in list_of_peaks_to_export:
+            spectrum = deepcopy(spectrum_meta)
+            peaks = _convert_string_peaks_to_floats(peaks)
+            peaks_str = list(map(lambda x: f'[{x[0]},{x[1]}]', peaks))
+            spectrum['energy'] = energy
+            spectrum['peaks'] = peaks
+            spectrum['peaks_json'] = '[' + ','.join(peaks_str) + ']'
+            spectra.append(spectrum)
+
+    return spectra
+
+
+def convert_cfm_to_json(dir_path, output_path, is_convert_energies=True):
     LOGGER.debug('Convert CFM prediction files to a JSON file.')
     paths = [os.path.join(dir_path, f) for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
 
@@ -37,69 +112,10 @@ def convert_cfm_to_json(dir_path, output_path):
     spectra = []
 
     for path in paths:
-        json_data = {}
-        peaks_energy0 = []
-        peaks_energy1 = []
-        peaks_energy2 = []
-        mz_energy2 = []
-        intensity_energy2 = []
-        flag_energy = -1
-        with open(path, 'r') as f:
-            for line in f:
-                line = line.rstrip()
-                if line.startswith('#'):
-                    _parse_metadata(line, json_data)
-
-                elif line == 'energy0':
-                    flag_energy = 0
-                elif line == 'energy1':
-                    flag_energy = 1
-                elif line == 'energy2':
-                    flag_energy = 2
-
-                elif re.match(r'(\d+\.\d+) (\d+\.\d+)', line):
-                    mz, intensity = re.match(r'(\d+\.\d+) (\d+\.\d+)', line).groups()[:2]
-                    
-
-                    if flag_energy == 0:
-                        peaks_energy0.append((mz, intensity))
-                    elif flag_energy == 1:
-                        peaks_energy1.append((mz, intensity))
-                    elif flag_energy == 2:
-                        peaks_energy2.append((mz, intensity))
-                        mz_energy2.append(mz)
-                        intensity = float(intensity)
-                        intensity_energy2.append(intensity)
-
-                elif not line:
-                    break
-
-            median_intensity = np.median(intensity_energy2)
-            for mz, intensity in peaks_energy0:
-                if mz not in mz_energy2:
-                    peaks_energy2.append((mz, median_intensity))
-                    mz_energy2.append(mz)
-
-            for mz, intensity in peaks_energy1:
-                if mz not in mz_energy2:
-                    peaks_energy2.append((mz, median_intensity))
-                    mz_energy2.append(mz)
-
-            if not peaks_energy2:
-                continue
-
-            peaks_energy2 = list(map(lambda x: [float(x[0]), x[1]], peaks_energy2))
-            peaks_energy2 = sorted(peaks_energy2, key=lambda x: x[0])
-            peaks_energy2 = list(map(lambda x: f'[{x[0]},{x[1]}]', peaks_energy2))
-
-            json_data['peaks_json'] = '[' + ','.join(peaks_energy2) + ']'
-
-            if json_data['Adduct'] in ('[M+H]+','[M]+','[M+NH4]+','[M+Na]+','[M+K]+','[M+Li]+'):
-                json_data['Ion_Mode'] = 'Positive'
-            elif json_data['Adduct'] in ('[M-H]-','[M]-','[M+Cl]-','[M+HCOOH-H]-','[M+CH3COOH-H]-','[M-2H]2-'):
-                json_data['Ion_Mode'] = 'Negative'
-
-            spectra.append(json_data)
+        _spectra = read_cfm_result(path, is_convert_energies=is_convert_energies)
+        for spectrum in _spectra:
+            spectrum = spectrum.pop('peaks')
+            spectra.append(spectrum)
 
     with open(output_path, 'w') as j:
         json.dump(spectra, j, indent=4)

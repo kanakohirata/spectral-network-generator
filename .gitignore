@@ -7,3 +7,7 @@ score.h5
 spectrum_metadata.h5
 .devcontainer/
 .vscode/
+scores/
+serialized_spectra/
+input/
+output/

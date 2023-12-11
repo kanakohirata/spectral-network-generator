@@ -9,11 +9,11 @@ from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, load_and_serialize_spectra,
                                                serialize_filtered_spectra)
-from my_parser.score_parser import initialize_score_hdf5
+from my_parser.score_parser import delete_score_files, initialize_score_hdf5
 from my_parser.spectrum_metadata_parser import initialize_spectrum_metadata_hdf5
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
 from utils import add_compound_info, add_metacyc_compound_info
-from utils.clustering import add_cluster_id
+from utils.clustering import create_cluster_frame
 
 
 LOGGER = getLogger(__name__)
@@ -46,6 +46,7 @@ def generate_spectral_network(config_obj, _logger=None):
     read_meta.initialize_metacyc_hdf5('./metacyc.h5')
     read_meta.initialize_metacyc_hdf5('./metacyc_for_filter.h5')
     initialize_score_hdf5()
+    delete_score_files()
 
     # make sure which type/version of spec obj you are using
     # input variable config_obj.id is used when multiple versions of config object is used for mainly cross validation
@@ -166,9 +167,9 @@ def generate_spectral_network(config_obj, _logger=None):
     # -------------------------------
     # Calculate spectral similarity
     # -------------------------------
+    config_obj.is_clustering_required = create_cluster_frame()
     calculate_similarity_score(config_obj.mz_tol, config_obj.intensity_convert_mode)
     clustering_based_on_inchikey()
-    add_cluster_id()
 
     # -------
     # Output

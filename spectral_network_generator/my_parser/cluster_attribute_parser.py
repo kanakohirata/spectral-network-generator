@@ -3,7 +3,7 @@ from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 import pandas as pd
 import re
-from my_parser.score_parser import get_chunks
+from my_parser.score_parser import iter_clustered_score_array
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -46,8 +46,17 @@ def write_cluster_attribute_old(path, spectra_datasets):
 def write_cluster_attribute(path, ref_split_category):
     LOGGER.debug(f'Write cluster attribute: {path}')
     arr = None
-    for _arr, chunk_start, chunk_end in get_chunks('clustered_score', db_chunk_size=1000000, path='./score.h5'):
-        _arr = _arr[_arr['inchikey_b'] != b''][['inchikey_b', 'cluster_id_b']]
+    for _arr in iter_clustered_score_array(return_path=False, return_index=False):
+        _arr_a = _arr[['index_a', 'cluster_id_a']]
+        _arr_b = _arr[['index_b', 'cluster_id_b']]
+
+        _arr_a = np.unique(_arr_a)
+        _arr_b = np.unique(_arr_b)
+
+        _arr_a = _arr_a.astype([('index', 'u8'), ('cluster_id', 'O')])
+        _arr_b = _arr_b.astype([('index', 'u8'), ('cluster_id', 'O')])
+
+        _arr = np.hstack((_arr_a, _arr_b))
 
         if arr is None:
             arr = np.unique(_arr)
@@ -56,14 +65,12 @@ def write_cluster_attribute(path, ref_split_category):
             arr = np.unique(_arr)
 
     df_cluster_id = pd.DataFrame.from_records(arr)
-    df_cluster_id.rename(columns={'inchikey_b': 'inchikey', 'cluster_id_b': 'cluster_id'}, inplace=True)
-    df_cluster_id['inchikey'] = df_cluster_id['inchikey'].str.decode('utf-8')
     df_cluster_id['cluster_id'] = df_cluster_id['cluster_id'].str.decode('utf-8')
 
     with h5py.File('./spectrum_metadata.h5', 'r') as h5_meta:
         dset_meta = h5_meta['filtered/metadata']
         df_meta = pd.DataFrame.from_records(dset_meta[()][[
-            'global_accession', 'tag', 'inchi', 'inchikey', 'accession_number', 'compound_name', 'source_filename',
+            'index', 'global_accession', 'tag', 'inchi', 'inchikey', 'accession_number', 'compound_name', 'source_filename',
             'external_compound_unique_id_list', 'pathway_unique_id_list', 'pathway_common_name_list',
             'rt_in_sec', 'precursor_mz', 'peaks',
             'cmpd_classification_superclass_list', 'cmpd_classification_class_list',
@@ -114,8 +121,18 @@ def write_cluster_attribute(path, ref_split_category):
                             if s in ('Homogeneous non-metal compounds', 'Mixed metal/non-metal compounds')
                             else 'Organic compounds' for s in sl])
 
-        df_meta = pd.merge(df_meta, df_cluster_id, on='inchikey', how='left')
-        df_meta['cluster_id'].fillna(df_meta['global_accession'], inplace=True)
+        df_meta = pd.merge(df_meta, df_cluster_id, on='index', how='left')
+
+        # Fill empty "cluster_id" of sample
+        df_meta.loc[(df_meta['tag'] == 'sample') & (pd.isna(df_meta['cluster_id'])), 'cluster_id'] = df_meta['global_accession']
+
+        # Fill empty "cluster_id" of reference
+        for idx, row in df_meta[(df_meta['tag'] == 'ref') & (pd.isna(df_meta['cluster_id']))].iterrows():
+            if row['inchikey']:
+                _df_same_inchikey = df_meta[(df_meta['tag'] == 'ref') & (df_meta['inchikey'] == row['inchikey']) & (~pd.isna(df_meta['cluster_id']))]
+
+                if len(_df_same_inchikey):
+                    df_meta.at[idx, 'cluster_id'] = _df_same_inchikey.iloc[0]['cluster_id']
 
         df_meta['NUMBER_OF_SPECTRA'] = 1
         df_meta['LIST_ACCESSION_NUMBERS'] = df_meta['accession_number']

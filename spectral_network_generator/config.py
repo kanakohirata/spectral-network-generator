@@ -90,6 +90,9 @@ class SpecNetGenConfig:
         self.compound_table_paths = []
         self.external_file_filter_mode = 0
 
+        # Parameters not defined by a user
+        self.is_clustering_required = False
+
 
 def read_config_file(path='./config.ini', _logger=None):
     if isinstance(_logger, logging.Logger):
