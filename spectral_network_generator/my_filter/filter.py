@@ -67,6 +67,51 @@ def remove_blank_spectra_from_sample_spectra(mz_tolerance=0.01, rt_tolerance=0.1
         h5.flush()
 
 
+def filter_sample_spectra(config_obj, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    with h5py.File('./spectrum_metadata.h5', 'a') as h5:
+        for arr, chunk_start, chunk_end in get_chunks('filtered/metadata'):
+            ref_idx_arr = arr['index'][arr['tag'] == b'ref']
+            sample_arr = arr[arr['tag'] == b'sample']
+
+            if not sample_arr.size:
+                idx_arr = ref_idx_arr
+            else:
+                _mask_all_true = np.array([True] * sample_arr.shape[0])
+
+                # whether a record has precursor mass or not --------------------------------------------------
+                mask_precursor_mass_exists = _mask_all_true
+                if config_obj.remove_spec_wo_prec_mz:
+                    mask_precursor_mass_exists = sample_arr['precursor_mz'] > 0
+
+                mask_all = mask_precursor_mass_exists
+
+                filtered_sample_idx_arr = sample_arr['index'][mask_all]
+                idx_arr = np.append(filtered_sample_idx_arr, ref_idx_arr)
+
+            if idx_arr.size:
+                idx_arr.sort()
+                arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
+                if '_metadata' not in h5['filtered'].keys():
+                    h5.create_dataset(f'filtered/_metadata', data=arr_to_retain,
+                                    shape=arr_to_retain.shape, maxshape=(None,))
+                else:
+                    h5['filtered/_metadata'].resize(h5['filtered/_metadata'].len() + arr_to_retain.shape[0], axis=0)
+                    h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain
+                h5.flush()
+
+        del h5['filtered/metadata']
+        h5.flush()
+        
+        h5.create_dataset('filtered/metadata', data=h5['filtered/_metadata'][()], shape=h5['filtered/_metadata'].shape, maxshape=(None,))
+        del h5['filtered/_metadata']
+        h5.flush()
+
+
 def filter_reference_spectra(config_obj, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
@@ -300,7 +345,7 @@ def filter_reference_spectra(config_obj, _logger=None):
                 arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
                 if '_metadata' not in h5['filtered'].keys():
                     h5.create_dataset(f'filtered/_metadata', data=arr_to_retain,
-                                    shape=arr_to_retain.shape, maxshape=(None,))
+                                      shape=arr_to_retain.shape, maxshape=(None,))
                 else:
                     h5['filtered/_metadata'].resize(h5['filtered/_metadata'].len() + arr_to_retain.shape[0], axis=0)
                     h5['filtered/_metadata'][-arr_to_retain.shape[0]:] = arr_to_retain

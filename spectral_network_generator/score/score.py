@@ -4,7 +4,7 @@ import itertools
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 from matchms import calculate_scores
-from matchms.similarity import CosineGreedy
+from matchms.similarity import CosineGreedy, ModifiedCosine
 import numpy as np
 import numpy.lib.recfunctions as rfn
 import os
@@ -37,7 +37,13 @@ def _calculate_similarity_score_with_cosine_greedy(references, queries, toleranc
                             is_symmetric=is_symmetric)
 
 
-def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
+def _calculate_similarity_score_with_modified_cosine_greedy(references, queries, tolerance, mz_power=0, intensity_power=1, is_symmetric=False):    
+    return calculate_scores(references=references, queries=queries,
+                            similarity_function=ModifiedCosine(tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
+                            is_symmetric=is_symmetric)
+
+
+def calculate_similarity_score(matching_mode, tolerance, intensity_convert_mode, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -84,7 +90,12 @@ def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
             logger.debug(f'Calculate spectral similarity using MatchMS.\n'
                          f'{os.path.basename(pickle_path_a)} vs {os.path.basename(pickle_path_b)}, intensity conversion: {intensity_convert_message[intensity_convert_mode]}')
 
-            scores = _calculate_similarity_score_with_cosine_greedy(spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+            if matching_mode == 1:
+                scores = _calculate_similarity_score_with_cosine_greedy(
+                    spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+            elif matching_mode == 2:
+                scores = _calculate_similarity_score_with_modified_cosine_greedy(
+                    spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
 
             # Get spectral metadata.
             spectrum_idx_start_a = int(re.findall(r'\d+', os.path.basename(pickle_path_a))[0])
