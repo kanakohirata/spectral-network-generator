@@ -1,4 +1,5 @@
 import h5py
+import numpy as np
 
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
@@ -26,7 +27,8 @@ def get_chunks(key, db_chunk_size=10000, path='./spectrum_metadata.h5', change_s
 
     with h5py.File(path, 'r') as h5:
         dset = h5[key]
-        dtype = [('index', 'u8'), ('tag', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+        dtype = [('index', 'u8'), ('tag', H5PY_STR_TYPE),
+                 ('keyword', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
                  ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
                  ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
                  ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),
@@ -57,3 +59,22 @@ def get_chunks(key, db_chunk_size=10000, path='./spectrum_metadata.h5', change_s
                 yield dset[start:end].astype(dtype, copy=False), start, end  # Too late
             else:
                 yield dset[start:end], start, end
+
+
+def group_by_dataset(path='./spectrum_metadata.h5', key='filtered/metadata'):
+    with h5py.File(path, 'a') as h5:
+        if 'grouped' in h5.keys():
+            del h5['grouped']
+
+        dset = h5[key]
+        keywords_arr = np.array(list(map(lambda x: x.split(b'|'), dset['keyword'])))
+        keyword_set = []
+        for keywords in keywords_arr:
+            keyword_set.extend(keywords)
+
+        keyword_set = set(keyword_set)
+
+        for dataset_keyword in keyword_set:
+            dataset_mask = [dataset_keyword in k for k in keywords_arr]
+            dataset_arr = dset[()][dataset_mask]
+            h5.create_dataset(f'grouped/{dataset_keyword.decode("utf-8")}', data=dataset_arr, shape=dataset_arr.shape, maxshape=(None,))

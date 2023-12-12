@@ -9,6 +9,7 @@ from matchms.importing import load_from_json, load_from_mgf, load_from_msp
 import os
 import pickle
 import re
+import shutil
 import time
 from my_parser.mona_parser import convert_json_to_matchms_spectra
 from utils.spectrum_processing import (deisotope, introduce_random_delta_to_mz,
@@ -27,12 +28,23 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def delete_serialize_spectra_file():
+def initialize_serialize_spectra_file():
+    if not os.path.isdir('./serialized_spectra/filtered'):
+        os.makedirs('./serialized_spectra/filtered')
+    
+    if not os.path.isdir('./serialized_spectra/grouped'):
+        os.makedirs('./serialized_spectra/grouped')
+
     for p in glob('./serialized_spectra/*.pickle'):
         os.remove(p)
 
     for p in glob('./serialized_spectra/filtered/*.pickle'):
         os.remove(p)
+
+    for f in os.listdir('./serialized_spectra/grouped'):
+        p = os.path.join('./serialized_spectra/grouped', f)
+        if os.path.isdir(p):
+            shutil.rmtree(p)
 
 
 def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.001, is_introduce_random_mass_shift=False,
@@ -146,6 +158,7 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
         spectrum_metadata_list.append((
             last_index,
             dataset_tag,
+            '',  # dataset keyword
             spectra_filename,
             _s.get('global_accession', ''),
             _s.get('accession_number', ''),
@@ -214,7 +227,8 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
     with h5py.File('spectrum_metadata.h5', 'a') as h5:
         _arr = np.array(spectrum_metadata_list,
                         dtype=[
-                            ('index', 'u8'), ('tag', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+                            ('index', 'u8'), ('tag', H5PY_STR_TYPE),
+                            ('keyword', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
                             ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
                             ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
                             ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),
@@ -294,3 +308,106 @@ def serialize_filtered_spectra():
     with open(_new_spectra_path, 'wb') as f_new:
         pickle.dump(spectra, f_new)
         f_new.flush()
+
+
+def serialize_grouped_spectra():
+    with h5py.File('./spectrum_metadata.h5', 'r') as metadata_h5:
+        for dataset_keyword in metadata_h5['grouped'].keys():
+            indexes_to_serialize = metadata_h5[f'grouped/{dataset_keyword}'].fields('index')[()].astype(int)
+
+            output_dir = os.path.join('./serialized_spectra/grouped', dataset_keyword)
+            if not os.path.isdir(output_dir):
+                os.makedirs(output_dir)
+
+            dump_count = 0
+            count = 0
+            spectra = []
+            for _spectra, idx_start, idx_end in iter_spectra(return_index=True):
+                _indexes_to_serialize = [i - idx_start for i in indexes_to_serialize if idx_start <= i <= idx_end]
+                _spectra = list(map(lambda i: _spectra[i], _indexes_to_serialize))
+
+                if count + len(_spectra) >= 1000 * (dump_count + 1):
+                    count_to_add = 1000 * (dump_count + 1) - count
+                    count += len(_spectra[:count_to_add])
+                    spectra += _spectra[:count_to_add]
+
+                    _new_spectra_idx_start = count - 1000
+                    _new_spectra_idx_end = count - 1
+                    _new_spectra_path = os.path.join(output_dir,
+                                                     f'{_new_spectra_idx_start}-{_new_spectra_idx_end}.pickle')
+
+                    with open(_new_spectra_path, 'wb') as f_new:
+                        pickle.dump(spectra, f_new)
+                        f_new.flush()
+
+                    count += len(_spectra[count_to_add:])
+                    spectra = _spectra[count_to_add:]
+                    dump_count += 1
+
+                else:
+                    count += len(_spectra)
+                    spectra += _spectra
+
+            _new_spectra_idx_start = int(count / 1000) * 1000
+            _new_spectra_idx_end = count - 1
+            _new_spectra_path = os.path.join(output_dir, f'{_new_spectra_idx_start}-{_new_spectra_idx_end}.pickle')
+
+            with open(_new_spectra_path, 'wb') as f_new:
+                pickle.dump(spectra, f_new)
+                f_new.flush()
+
+
+def iter_spectra(return_path=False, return_index=False):
+    dir_path = './serialized_spectra'
+    path_vs_index_list = []
+
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and filename.endswith('.pickle'):
+            filename_without_ext = os.path.splitext(filename)[0]
+            start_idx = int(filename_without_ext.split('-')[0])
+            end_idx = int(filename_without_ext.split('-')[1])
+            path_vs_index_list.append((path, start_idx, end_idx))
+
+    path_vs_index_list.sort(key=lambda x: x[1])
+
+    for pickle_path, start_idx, end_idx in path_vs_index_list:
+        with open(pickle_path, 'rb') as f:
+            spectra = pickle.load(f)
+
+        if return_path and return_index:
+            yield spectra, pickle_path, start_idx, end_idx
+        elif return_path:
+            yield spectra, pickle_path
+        elif return_index:
+            yield spectra, start_idx, end_idx
+        else:
+            yield spectra
+
+
+def iter_filtered_spectra(return_path=False, return_index=False):
+    dir_path = './serialized_spectra/filtered'
+    path_vs_index_list = []
+
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and filename.endswith('.pickle'):
+            filename_without_ext = os.path.splitext(filename)[0]
+            start_idx = int(filename_without_ext.split('-')[0])
+            end_idx = int(filename_without_ext.split('-')[1])
+            path_vs_index_list.append((path, start_idx, end_idx))
+
+    path_vs_index_list.sort(key=lambda x: x[1])
+
+    for pickle_path, start_idx, end_idx in path_vs_index_list:
+        with open(pickle_path, 'rb') as f:
+            spectra = pickle.load(f)
+
+        if return_path and return_index:
+            yield spectra, pickle_path, start_idx, end_idx
+        elif return_path:
+            yield spectra, pickle_path
+        elif return_index:
+            yield spectra, start_idx, end_idx
+        else:
+            yield spectra

@@ -7,12 +7,15 @@ from my_filter import extract_top_x_peak_rich, filter_reference_spectra, remove_
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
-from my_parser.matchms_spectrum_parser import (delete_serialize_spectra_file, load_and_serialize_spectra,
-                                               serialize_filtered_spectra)
+from my_parser.matchms_spectrum_parser import (initialize_serialize_spectra_file,
+                                               load_and_serialize_spectra,
+                                               serialize_filtered_spectra,
+                                               serialize_grouped_spectra)
 from my_parser.score_parser import delete_score_files, initialize_score_hdf5
-from my_parser.spectrum_metadata_parser import initialize_spectrum_metadata_hdf5
+from my_parser.spectrum_metadata_parser import (group_by_dataset,
+                                                initialize_spectrum_metadata_hdf5)
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
-from utils import add_compound_info, add_metacyc_compound_info
+from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info
 from utils.clustering import create_cluster_frame
 
 
@@ -41,7 +44,7 @@ def generate_spectral_network(config_obj, _logger=None):
     if not os.path.isdir('./serialized_spectra/filtered'):
         os.makedirs('./serialized_spectra/filtered')
 
-    delete_serialize_spectra_file()
+    initialize_serialize_spectra_file()
     initialize_spectrum_metadata_hdf5()
     read_meta.initialize_metacyc_hdf5('./metacyc.h5')
     read_meta.initialize_metacyc_hdf5('./metacyc_for_filter.h5')
@@ -163,6 +166,13 @@ def generate_spectral_network(config_obj, _logger=None):
             extract_top_x_peak_rich(_filename, config_obj.num_top_x_peak_rich)
     
     serialize_filtered_spectra()
+
+    # --------------------------------------
+    # Group metadata and spectra by dataset
+    # --------------------------------------
+    add_dataset_keyword(config_obj.ref_split_category)
+    group_by_dataset()
+    serialize_grouped_spectra()
 
     # -------------------------------
     # Calculate spectral similarity
