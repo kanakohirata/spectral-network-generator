@@ -13,7 +13,12 @@ def initialize_score_hdf5(path='./score.h5'):
         pass
 
 
-def delete_score_files(scores_dir='./scores', clustered_scores_dir='./scores/clustered_scores'):
+def initialize_score_files(scores_dir='./scores', clustered_scores_dir='./scores/clustered_scores'):
+    if not os.path.isdir(scores_dir):
+        os.makedirs(scores_dir)
+    if not os.path.isdir(clustered_scores_dir):
+        os.makedirs(clustered_scores_dir)
+
     for f in os.listdir(scores_dir):
         p = os.path.join(scores_dir, f)
         if os.path.isfile(p):

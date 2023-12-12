@@ -14,7 +14,7 @@ from my_parser.matchms_spectrum_parser import (initialize_serialize_spectra_file
                                                load_and_serialize_spectra,
                                                serialize_filtered_spectra,
                                                serialize_grouped_spectra)
-from my_parser.score_parser import delete_score_files, initialize_score_hdf5
+from my_parser.score_parser import initialize_score_files, initialize_score_hdf5
 from my_parser.spectrum_metadata_parser import (group_by_dataset,
                                                 initialize_spectrum_metadata_hdf5)
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
@@ -52,7 +52,7 @@ def generate_spectral_network(config_obj, _logger=None):
     read_meta.initialize_metacyc_hdf5('./metacyc.h5')
     read_meta.initialize_metacyc_hdf5('./metacyc_for_filter.h5')
     initialize_score_hdf5()
-    delete_score_files()
+    initialize_score_files()
 
     # make sure which type/version of spec obj you are using
     # input variable config_obj.id is used when multiple versions of config object is used for mainly cross validation
