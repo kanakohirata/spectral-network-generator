@@ -3,7 +3,7 @@ import h5py
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
-from matchms.filtering import (add_retention_time, add_retention_index, derive_inchi_from_smiles,
+from matchms.filtering import (add_retention_time, add_retention_index, default_filters, derive_inchi_from_smiles,
                                derive_inchikey_from_inchi, normalize_intensities, select_by_relative_intensity)
 from matchms.importing import load_from_json, load_from_mgf, load_from_msp
 import os
@@ -111,7 +111,8 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
 
         if matching_top_n_input > 0:
             _s = set_top_n_most_intense_peaks(_s, matching_top_n_input)
-
+        
+        _s = default_filters(_s)
         _s = normalize_intensities(_s)
         _s = add_retention_time(_s)
         _s = add_retention_index(_s)
