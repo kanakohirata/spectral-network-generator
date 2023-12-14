@@ -56,7 +56,7 @@ Acceptable columns:
    
    The project name "sng-pub" can be changed to any name you prefer.
 
-4. Start the container
+4. Starting the container
    ```
    docker compose -p sng-pub start python
    ```
