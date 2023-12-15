@@ -114,7 +114,8 @@ def add_compound_info(compound_table_paths):
 
         new_arr = np.array(df_metadata.to_records(index=False), dtype=[
             ('index', 'u8'), ('tag', H5PY_STR_TYPE),
-            ('keyword', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+            ('keyword', H5PY_STR_TYPE), ('cluster_id', H5PY_STR_TYPE),
+            ('source_filename', H5PY_STR_TYPE),
             ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
             ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
             ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),

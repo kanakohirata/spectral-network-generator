@@ -92,6 +92,7 @@ class SpecNetGenConfig:
 
         # Parameters not defined by a user
         self.is_clustering_required = False
+        self.max_length_of_cluster_id = 100
 
 
 def read_config_file(path='./config.ini', _logger=None):

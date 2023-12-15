@@ -5,13 +5,14 @@ import itertools
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 from matchms import calculate_scores
-from matchms.similarity import CosineGreedy
+from matchms.similarity import CosineGreedy, ModifiedCosine
 import numpy as np
 import numpy.lib.recfunctions as rfn
 import os
 import pandas as pd
 import pickle
 import re
+from my_parser.matchms_spectrum_parser import get_sample_spectra_paths, get_ref_spectra_paths
 from my_parser.score_parser import get_chunks, initialize_score_hdf5, iter_clustered_score_array, iter_score_array
 from utils.spectrum_processing import set_intensity_in_log1p
 
@@ -39,7 +40,13 @@ def _calculate_similarity_score_with_cosine_greedy(references, queries, toleranc
                             is_symmetric=is_symmetric)
 
 
-def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
+def _calculate_similarity_score_with_modified_cosine_greedy(references, queries, tolerance, mz_power=0, intensity_power=1, is_symmetric=False):    
+    return calculate_scores(references=references, queries=queries,
+                            similarity_function=ModifiedCosine(tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
+                            is_symmetric=is_symmetric)
+
+
+def calculate_similarity_score(matching_mode, tolerance, intensity_convert_mode, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -93,7 +100,12 @@ def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
             logger.debug(f'Calculate spectral similarity using MatchMS.\n'
                          f'{filename_a} vs {filename_b}, intensity conversion: {intensity_convert_message[intensity_convert_mode]}')
 
-            scores = _calculate_similarity_score_with_cosine_greedy(spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+            if matching_mode == 1:
+                scores = _calculate_similarity_score_with_cosine_greedy(
+                    spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+            elif matching_mode == 2:
+                scores = _calculate_similarity_score_with_modified_cosine_greedy(
+                    spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
 
             # Get spectral metadata.
             spectrum_idx_start_a = int(re.findall(r'\d+', filename_a)[0])
@@ -145,12 +157,186 @@ def calculate_similarity_score(tolerance, intensity_convert_mode, _logger=None):
             index += score_arr.shape[0]
 
 
-def _cluster_score_core(score_arr, cluster_ids):
+def _calculate_similarity_score_for_grouped_spectra(
+        dir_output, pickle_path_a, pickle_path_b, matching_mode, tolerance, intensity_convert_mode,
+        metadata_key_a, metadata_key_b, index=0, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+    
+    # Define intensity_power ---------------------------------------------------------
+    intensity_convert_message = {0: 'do nothing', 2: 'log(1 + x)', 3: 'square root'}
+
+    if intensity_convert_mode == 3:
+        intensity_power = 0.5
+    elif intensity_convert_mode == 0 or intensity_convert_mode == 2:
+        intensity_power = 1
+    else:
+        intensity_power = 1
+        intensity_convert_message[intensity_convert_mode] = 'do nothing'
+    # --------------------------------------------------------------------------------
+
+    # Make output folder -------------
+    if not os.path.isdir(dir_output):
+        os.makedirs(dir_output)
+    # --------------------------------
+
+    filename_a = os.path.splitext(os.path.basename(pickle_path_a))[0]
+    filename_b = os.path.splitext(os.path.basename(pickle_path_b))[0]
+
+    is_symmetric = False
+    if pickle_path_a == pickle_path_b:
+        is_symmetric = True
+    
+    # Load spectra from pickle file -----------
+    with open(pickle_path_a, 'rb') as f:
+        spectra_a = pickle.load(f)
+
+    if is_symmetric:
+        spectra_b = spectra_a
+    else:
+        with open(pickle_path_b, 'rb') as f:
+            spectra_b = pickle.load(f)
+    # -----------------------------------------
+    
+    # Convert intensity ---------------------------------------------
+    if intensity_convert_mode == 2:
+        spectra_a = list(map(set_intensity_in_log1p, spectra_a))
+
+        if is_symmetric:
+            spectra_b = spectra_a
+        else:
+            spectra_b = list(map(set_intensity_in_log1p, spectra_b))
+    # ---------------------------------------------------------------
+
+    # Calculate similarity score ---------------------------------------------------------------------------
+    logger.debug(f'Calculate spectral similarity using MatchMS.\n'
+                    f'{filename_a} vs {filename_b}, intensity conversion: {intensity_convert_message[intensity_convert_mode]}')
+
+    if matching_mode == 1:
+        scores = _calculate_similarity_score_with_cosine_greedy(
+            spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+    elif matching_mode == 2:
+        scores = _calculate_similarity_score_with_modified_cosine_greedy(
+            spectra_a, spectra_b, tolerance, intensity_power=intensity_power, is_symmetric=is_symmetric)
+    # ------------------------------------------------------------------------------------------------------
+
+    # Get spectral metadata -----------------------------------------------------------------------
+    spectrum_idx_start_a = int(re.findall(r'\d+', filename_a)[0])
+    spectrum_idx_end_a = int(re.findall(r'\d+', filename_a)[1])
+    spectrum_idx_start_b = int(re.findall(r'\d+', filename_b)[0])
+    spectrum_idx_end_b = int(re.findall(r'\d+', filename_b)[1])
+
+    # Read metadata
+    with h5py.File('./spectrum_metadata.h5', 'r') as h5_metadata:
+        metadata_arr_a = h5_metadata[metadata_key_a][spectrum_idx_start_a:spectrum_idx_end_a + 1]
+        metadata_arr_b = h5_metadata[metadata_key_b][spectrum_idx_start_b:spectrum_idx_end_b + 1]
+
+    metadata_arr_a = metadata_arr_a[['index', 'global_accession', 'tag', 'inchikey']]
+    metadata_arr_b = metadata_arr_b[['index', 'global_accession', 'tag', 'inchikey']]
+    # ---------------------------------------------------------------------------------------------
+
+    # Construct score structure ----------------------------------------------------------------
+    # Construct metadata structure
+    score_data = list(itertools.product(metadata_arr_a, metadata_arr_b))
+    # Combine scores and metadata
+    score_data = list(map(lambda x: (x[0][0][0], x[0][1][0],
+                                     x[0][0][1], x[0][1][1],
+                                     x[0][0][2], x[0][1][2],
+                                     x[0][0][3], x[0][1][3],
+                                     x[1][0], x[1][1]),
+                          zip(score_data, scores.scores.flatten())))
+    
+    score_arr = np.array(score_data,
+                         dtype=[('index_a', 'u8'), ('index_b', 'u8'),
+                                ('global_accession_a', 'O'), ('global_accession_b', 'O'),
+                                ('tag_a', 'S6'), ('tag_b', 'S6'),
+                                ('inchikey_a', 'S27'), ('inchikey_b', 'S27'),
+                                ('score', 'f8'), ('matches', 'u2')])
+    
+    max_len_of_global_accession_a = max(len(x) for x in score_arr['global_accession_a'])
+    max_len_of_global_accession_b = max(len(x) for x in score_arr['global_accession_b'])
+
+    score_arr = score_arr.astype([('index_a', 'u8'), ('index_b', 'u8'),
+                                  ('global_accession_a', f'S{max_len_of_global_accession_a}'),
+                                  ('global_accession_b', f'S{max_len_of_global_accession_b}'),
+                                  ('tag_a', f'S6'), ('tag_b', f'S6'),
+                                  ('inchikey_a', f'S27'), ('inchikey_b', f'S27'),
+                                  ('score', 'f8'), ('matches', 'u2')])
+
+    mask = score_arr['index_a'] < score_arr['index_b']
+    score_arr = score_arr[mask]
+    index_arr = np.arange(index, index + score_arr.shape[0])
+    score_arr = rfn.append_fields(score_arr, 'index', index_arr, usemask=False)
+    # ------------------------------------------------------------------------------------------
+
+    # Export score as .npy file -----------------------------------------------
+    score_path = os.path.join(dir_output, f'{filename_a}_vs_{filename_b}.npy')
+    with open(score_path, 'wb') as f:
+        np.save(f, score_arr)
+    # -------------------------------------------------------------------------
+
+    index += score_arr.shape[0]
+
+    return index
+
+    
+
+def calculate_similarity_score_for_grouped_spectra(matching_mode, tolerance, intensity_convert_mode, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    sample_spectra_paths = get_sample_spectra_paths()
+    ref_dataset_keyword_vs_spectra_paths = get_ref_spectra_paths()
+
+    index = 0
+
+    # Caluculate scores of sample vs sample ------------------------------------------------------------------------
+    logger.info('Caluculate scores of sample vs sample')
+    sample_score_dir = './scores/grouped_scores/sample'
+    for (pickle_path_a, _, _), (pickle_path_b, _, _) in itertools.combinations_with_replacement(sample_spectra_paths, 2):
+        index = _calculate_similarity_score_for_grouped_spectra(
+            sample_score_dir, pickle_path_a, pickle_path_b, matching_mode, tolerance, intensity_convert_mode,
+            'grouped/sample', 'grouped/sample', index
+        )
+    # --------------------------------------------------------------------------------------------------------------
+
+    # Caluculate scores of sample vs reference ---------------------------------------------------------------------
+    for dataset_keyword, ref_spectra_paths in ref_dataset_keyword_vs_spectra_paths.items():
+        logger.info(f'Caluculate scores of sample vs {dataset_keyword}')
+        sample_vs_ref_score_dir = os.path.join(sample_score_dir, dataset_keyword)
+        for (pickle_path_a, _, _), (pickle_path_b, _, _) in itertools.product(sample_spectra_paths, ref_spectra_paths):
+            index = _calculate_similarity_score_for_grouped_spectra(
+                sample_vs_ref_score_dir, pickle_path_a, pickle_path_b, matching_mode, tolerance, intensity_convert_mode,
+                'grouped/sample', f'grouped/{dataset_keyword}', index
+            )
+    # --------------------------------------------------------------------------------------------------------------
+
+    # Caluculate scores of reference vs reference ------------------------------------------------------------------
+    for dataset_keyword, ref_spectra_paths in ref_dataset_keyword_vs_spectra_paths.items():
+        logger.info(f'Caluculate scores of {dataset_keyword} vs {dataset_keyword}')
+        ref_score_dir = os.path.join('./scores/grouped_scores', dataset_keyword)
+        for (pickle_path_a, _, _), (pickle_path_b, _, _) in itertools.combinations_with_replacement(ref_spectra_paths, 2):
+            index = _calculate_similarity_score_for_grouped_spectra(
+                ref_score_dir, pickle_path_a, pickle_path_b, matching_mode, tolerance, intensity_convert_mode,
+                f'grouped/{dataset_keyword}', f'grouped/{dataset_keyword}', index
+            )
+    # --------------------------------------------------------------------------------------------------------------
+
+
+def _cluster_score_core(score_arr, cluster_ids, clustered_score_dir='./scores/clustered_scores'):
+    # Get cluster index
     cluster_index_arr_a = np.array((list(map(lambda x: cluster_ids.index(x), score_arr['cluster_id_a']))))
     cluster_index_arr_b = np.array(list(map(lambda x: cluster_ids.index(x), score_arr['cluster_id_b'])))
     
+    # Get max length of cluster id
     max_length_of_cluster_id = max(len(x) for x in score_arr['cluster_id_a'])
     max_length_of_cluster_id = max(max_length_of_cluster_id, max(len(x) for x in score_arr['cluster_id_b']))
+
+    # Create un-clustered score array (score_arr + cluster_index_arr_a and cluster_index_arr_b)
     dtype = [('index', 'u8'),
              ('cluster_index_a', 'u8'), ('cluster_index_b', 'u8'),
              ('index_a', 'u8'), ('index_b', 'u8'),
@@ -184,7 +370,7 @@ def _cluster_score_core(score_arr, cluster_ids):
     # Sort by cluster_index_a and cluster_index_b
     unclustered_score_arr = unclustered_score_arr[np.argsort(unclustered_score_arr, order=['cluster_index_a', 'cluster_index_b'])]
 
-    for clustered_score_arr, clustered_score_path, clustered_score_idx_start in iter_clustered_score_array():
+    for clustered_score_arr, clustered_score_path, clustered_score_idx_start in iter_clustered_score_array(dir_path=clustered_score_dir):
         if clustered_score_arr is None:
             continue
         
@@ -209,13 +395,17 @@ def _cluster_score_core(score_arr, cluster_ids):
         
         unclustered_score_arr_temp['index'] = clustered_score_arr_temp['index']
 
+        # Match the order of fields in clustered_score_arr_temp and unclustered_score_arr_temp.
         fields = [x for x in clustered_score_arr_temp.dtype.names]
         unclustered_score_arr_temp = unclustered_score_arr_temp[fields]
 
+        # Get bool array indicating whether clustered_score_arr_temp['score'] < unclustered_score_arr_temp['score']
         mask_score = (clustered_score_arr_temp['score'] < unclustered_score_arr_temp['score'])\
                      | ((clustered_score_arr_temp['score'] == unclustered_score_arr_temp['score'])
                         & (clustered_score_arr_temp['matches'] <= unclustered_score_arr_temp['matches']))
         
+        # Replace clustered_score_arr_temp where clustered_score_arr_temp['score'] < unclustered_score_arr_temp['score']
+        # with unclustered_score_arr_temp
         clustered_score_arr_temp[mask_score] = unclustered_score_arr_temp[mask_score]
         
         # Update clustered_score_arr
@@ -325,6 +515,160 @@ def clustering_based_on_inchikey(_logger=None):
         if np.any(ref_vs_ref_mask):
             _arr = arr[ref_vs_ref_mask]
             _cluster_ref_vs_ref_score(_arr, cluster_ids)
+
+
+def _cluster_grouped_sample_vs_sample_score(score_arr, cluster_ids, max_length_of_cluster_id):
+    # Suffix '_a': sample, '_b': sample
+    
+    # 'cluster_id_a': 'sample|' + global_accession
+    # 'cluster_id_b': 'sample|' + global_accession
+    cluster_id_arr_a = np.core.defchararray.add(b'sample|', score_arr['global_accession_a'].astype(f'S{max_length_of_cluster_id}'))
+    cluster_id_arr_b = np.core.defchararray.add(b'sample|', score_arr['global_accession_b'].astype(f'S{max_length_of_cluster_id}'))
+    
+    # Add 'cluster_id_a' and 'cluster_id_b' fields
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_a', cluster_id_arr_a, usemask=False)
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_b', cluster_id_arr_b, usemask=False)
+
+    _cluster_score_core(score_arr, cluster_ids, './scores/grouped_and_clustered_scores/sample')
+
+
+def _cluster_grouped_sample_vs_ref_score(score_arr, cluster_ids, max_length_of_cluster_id, dataset_keyword):
+    # Suffix '_a': sample, '_b': reference
+    
+    # 'cluster_id_a': 'sample|' + global_accession
+    cluster_id_arr_a = np.core.defchararray.add(b'sample|', score_arr['global_accession_a'].astype(f'S{max_length_of_cluster_id}'))
+    
+    # 'cluster_id_b': 'dataset_keyword|' + inchikey or global_accession
+    dataset_keyword_byte = f'{dataset_keyword}|'.encode('utf8')
+    cluster_id_arr_b = np.where(score_arr['inchikey_b'] == b'',
+                                score_arr['global_accession_b'],
+                                score_arr['inchikey_b'])
+    cluster_id_arr_b = np.core.defchararray.add(dataset_keyword_byte, cluster_id_arr_b.astype(f'S{max_length_of_cluster_id}'))
+    
+    # Add 'cluster_id_a' and 'cluster_id_b' fields
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_a', cluster_id_arr_a, usemask=False)
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_b', cluster_id_arr_b, usemask=False)
+    
+    # Sort by similarity score and number of marched peaks
+    score_arr = score_arr[np.argsort(score_arr, order=['score', 'matches'])[::-1]]
+    # Extract scores with unique combination of cluster_id_a and cluster_id_b
+    temp_arr = score_arr[['cluster_id_a', 'cluster_id_b']]
+    unique_indexes = np.unique(temp_arr, axis=0, return_index=True)[1]
+    score_arr = score_arr[unique_indexes]
+    
+    _cluster_score_core(score_arr, cluster_ids, './scores/grouped_and_clustered_scores/sample')
+
+
+def _cluster_grouped_ref_vs_sample_score(score_arr, cluster_ids, max_length_of_cluster_id, dataset_keyword):
+    # Suffix '_a': reference, '_b': sample
+
+    # 'cluster_id_a': 'dataset_keyword|' + inchikey or global_accession
+    dataset_keyword_byte = f'{dataset_keyword}|'.encode('utf8')
+    cluster_id_arr_a = np.where(score_arr['inchikey_a'] == b'',
+                                score_arr['global_accession_a'],
+                                score_arr['inchikey_a'])
+    cluster_id_arr_a = np.core.defchararray.add(dataset_keyword_byte, cluster_id_arr_a.astype(f'S{max_length_of_cluster_id}'))
+    
+    # 'cluster_id_b': 'sample|' + global_accession
+    cluster_id_arr_b = np.core.defchararray.add(b'sample|', score_arr['global_accession_b'].astype(f'S{max_length_of_cluster_id}'))
+    
+    # Add 'cluster_id_a' and 'cluster_id_b' fields
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_a', cluster_id_arr_a, usemask=False)
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_b', cluster_id_arr_b, usemask=False)
+    
+    # Sort by similarity score and number of marched peaks
+    score_arr = score_arr[np.argsort(score_arr, order=['score', 'matches'])[::-1]]
+    # Extract scores with unique combination of cluster_id_a and cluster_id_b
+    temp_arr = score_arr[['cluster_id_a', 'cluster_id_b']]
+    unique_indexes = np.unique(temp_arr, axis=0, return_index=True)[1]
+    score_arr = score_arr[unique_indexes]
+    
+    _cluster_score_core(score_arr, cluster_ids, './scores/grouped_and_clustered_scores/sample')
+
+
+def _cluster_grouped_ref_vs_ref_score(score_arr, cluster_ids, max_length_of_cluster_id, dataset_keyword):
+    # Suffix '_a': reference, '_b': reference
+
+    dataset_keyword_byte = f'{dataset_keyword}|'.encode('utf8')
+
+    # 'cluster_id_a': 'dataset_keyword|' + inchikey or global_accession
+    cluster_id_arr_a = np.where(score_arr['inchikey_a'] == b'',
+                                score_arr['global_accession_a'],
+                                score_arr['inchikey_a'])
+    cluster_id_arr_a = np.core.defchararray.add(dataset_keyword_byte, cluster_id_arr_a.astype(f'S{max_length_of_cluster_id}'))
+    
+    # 'cluster_id_b': 'dataset_keyword|' + inchikey or global_accession
+    cluster_id_arr_b = np.where(score_arr['inchikey_b'] == b'',
+                                score_arr['global_accession_b'],
+                                score_arr['inchikey_b'])
+    cluster_id_arr_b = np.core.defchararray.add(dataset_keyword_byte, cluster_id_arr_b.astype(f'S{max_length_of_cluster_id}'))
+    
+    # Add 'cluster_id_a' and 'cluster_id_b' fields
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_a', cluster_id_arr_a, usemask=False)
+    score_arr = rfn.append_fields(score_arr, 'cluster_id_b', cluster_id_arr_b, usemask=False)
+    
+    # Sort by similarity score and number of matched peaks
+    score_arr = score_arr[np.argsort(score_arr, order=['score', 'matches'])[::-1]]
+    # Extract scores with unique combination of cluster_id_a and cluster_id_b
+    temp_arr = np.array(score_arr[['cluster_id_a', 'cluster_id_b']].tolist())
+    temp_arr = np.sort(temp_arr, axis=1)
+    unique_indices = np.unique(temp_arr, axis=0, return_index=True)[1]
+    score_arr = score_arr[unique_indices]
+    
+    grouped_and_clustered_scores_dir = os.path.join('./scores/grouped_and_clustered_scores', dataset_keyword)
+    _cluster_score_core(score_arr, cluster_ids, grouped_and_clustered_scores_dir)
+
+
+def clustering_grouped_score_based_on_inchikey(max_length_of_cluster_id, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    with open('./cluster_ids.pickle', 'rb') as f:
+        cluster_ids = pickle.load(f)
+
+    # Get reference dataset keywords ------------------------
+    ref_dataset_keywords = []
+    with h5py.File('./spectrum_metadata.h5', 'r') as h5_metadata:
+        for k in h5_metadata['grouped'].keys():
+            if k != 'sample':
+                ref_dataset_keywords.append(k)
+
+    # Cluster sample vs sample scores ----------------------------------------------------------------------
+    logger.info('Clustering sample vs sample scores ------------------------')
+    for arr, score_path in iter_score_array(dir_path='./scores/grouped_scores/sample', return_index=False):
+        logger.info(f'Clustering {os.path.basename(score_path)}')
+        _cluster_grouped_sample_vs_sample_score(arr, cluster_ids, max_length_of_cluster_id)
+    # ------------------------------------------------------------------------------------------------------
+
+    # Cluster sample vs reference scores -------------------------------------------------------------------
+    for dataset_keyword in ref_dataset_keywords:
+        logger.info(f'Clustering sample vs {dataset_keyword} scores ------------------------')
+        grouped_scores_dir = os.path.join('./scores/grouped_scores/sample', dataset_keyword)
+        for arr, score_path in iter_score_array(dir_path=grouped_scores_dir, return_index=False):
+            logger.info(f'Clustering {os.path.basename(score_path)}')
+
+            sample_vs_ref_mask = (arr['tag_a'] == b'sample') & (arr['tag_b'] == b'ref')
+            ref_vs_sample_mask = (arr['tag_a'] == b'ref') & (arr['tag_b'] == b'sample')
+
+            if np.any(sample_vs_ref_mask):
+                _arr = arr[sample_vs_ref_mask]
+                _cluster_grouped_sample_vs_ref_score(_arr, cluster_ids, max_length_of_cluster_id, dataset_keyword)
+
+            if np.any(ref_vs_sample_mask):
+                _arr = arr[ref_vs_sample_mask]
+                _cluster_grouped_ref_vs_sample_score(_arr, cluster_ids, max_length_of_cluster_id, dataset_keyword)
+    # ------------------------------------------------------------------------------------------------------
+
+    # Cluster reference vs reference scores ----------------------------------------------------------------
+    for dataset_keyword in ref_dataset_keywords:
+        logger.info(f'Clustering {dataset_keyword} vs {dataset_keyword} scores ------------------------')
+        grouped_scores_dir = os.path.join('./scores/grouped_scores', dataset_keyword)
+        for arr, score_path in iter_score_array(dir_path=grouped_scores_dir, return_index=False):
+            logger.info(f'Clustering {os.path.basename(score_path)}')
+            _cluster_grouped_ref_vs_ref_score(arr, cluster_ids, max_length_of_cluster_id, dataset_keyword)
+    # ------------------------------------------------------------------------------------------------------
 
 
 if __name__ == '__main__':

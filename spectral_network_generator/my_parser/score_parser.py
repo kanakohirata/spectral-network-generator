@@ -13,7 +13,10 @@ def initialize_score_hdf5(path='./score.h5'):
         pass
 
 
-def delete_score_files(scores_dir='./scores', clustered_scores_dir='./scores/clustered_scores'):
+def delete_score_files(scores_dir='./scores',
+                       clustered_scores_dir='./scores/clustered_scores',
+                       grouped_scores_dir='./scores/grouped_scores',
+                       grouped_and_clustered_scores_dir='./scores/grouped_and_clustered_scores'):
     for f in os.listdir(scores_dir):
         p = os.path.join(scores_dir, f)
         if os.path.isfile(p):
@@ -23,6 +26,16 @@ def delete_score_files(scores_dir='./scores', clustered_scores_dir='./scores/clu
         p = os.path.join(clustered_scores_dir, f)
         if os.path.isfile(p):
             os.remove(p)
+
+    for f in os.listdir(grouped_scores_dir):
+        p = os.path.join(grouped_scores_dir, f)
+        if os.path.isdir(p):
+            shutil.rmtree(p)
+
+    for f in os.listdir(grouped_and_clustered_scores_dir):
+        p = os.path.join(grouped_and_clustered_scores_dir, f)
+        if os.path.isdir(p):
+            shutil.rmtree(p)
 
 
 def get_chunks(key, db_chunk_size=10000, path='./score.h5'):
@@ -123,6 +136,47 @@ def iter_clustered_score_array(dir_path='./scores/clustered_scores', return_path
             yield arr, idx
         else:
             yield arr
+
+
+def iter_grouped_and_clustered_score_array(parent_dir_path='./scores/grouped_and_clustered_scores', grouped_metadata_key='grouped', return_path=True, return_index=True):
+    # Get sample score folder
+    dir_paths = [os.path.join(parent_dir_path, 'sample')]
+
+    # Get reference score folders
+    with h5py.File('./spectrum_matadata.h5', 'r') as h5:
+        for k in h5[grouped_metadata_key].key():
+            if k != 'sample':
+                dir_paths.append(os.path.join(parent_dir_path, k))
+
+    for dir_path in dir_paths:
+        score_paths = []
+        for filename in os.listdir(dir_path):
+            path = os.path.join(dir_path, filename)
+            if os.path.isfile(path) and re.match(r'\d+\.npy', filename):  
+                idx = int(os.path.splitext(filename)[0])
+                score_paths.append((path, idx))
+
+        if not score_paths:
+            if return_path and return_index:
+                return None, None, None
+            elif return_path or return_index:
+                return None, None
+            else:
+                return None
+
+        score_paths.sort(key=lambda x: x[1])
+
+        for path, idx in score_paths:
+            arr = np.load(path)
+
+            if return_path and return_index:
+                yield arr, path, idx
+            elif return_path:
+                yield arr, path
+            elif return_index:
+                yield arr, idx
+            else:
+                yield arr
 
 
 def adjust_string_length(data, max_lengths):

@@ -4,7 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 import re
-from my_parser.score_parser import iter_clustered_score_array, split_array
+from my_parser.score_parser import iter_clustered_score_array, iter_grouped_and_clustered_score_array, split_array
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -16,7 +16,12 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def write_edge_info(path, score_threshold, minimum_peak_match_to_output, mz_tolerance):
+def write_edge_info(path, score_threshold, minimum_peak_match_to_output, mz_tolerance, create_edge_within_layer_ref=0):
+    if create_edge_within_layer_ref == 0:
+        iter_array_function = iter_clustered_score_array
+    else:
+        iter_array_function = iter_grouped_and_clustered_score_array
+    
     with h5py.File('./spectrum_metadata.h5', 'r') as h5_meta:
         dset_meta = h5_meta['filtered/metadata']
         df_meta = pd.DataFrame.from_records(dset_meta[()][[
@@ -91,7 +96,8 @@ def write_edge_info(path, score_threshold, minimum_peak_match_to_output, mz_tole
                                 'cmpd_classification_class_list': 'cmpd_classification_class_list_b'},
                        inplace=True)
 
-        for _arr, clustered_score_path, start_index in iter_clustered_score_array():
+        writing_count = 0
+        for _arr, clustered_score_path, _ in iter_array_function():
             LOGGER.debug(f'Write edge info: {os.path.basename(clustered_score_path)}')
             _arr = _arr[(_arr['score'] >= score_threshold) & (_arr['matches'] >= minimum_peak_match_to_output)]
 
@@ -277,10 +283,12 @@ def write_edge_info(path, score_threshold, minimum_peak_match_to_output, mz_tole
 
                 # temp_path = path + f'.temp{count}'
                 # df.to_csv(temp_path, sep='\t', index=False, mode='w')
-                if start_index == 0:
+                if writing_count == 0:
                     df.to_csv(path, sep='\t', index=False, mode='w')
                 else:
                     df.to_csv(path, sep='\t', index=False, header=False, mode='a')
+
+                writing_count += 1
 
 
 if __name__ == '__main__':

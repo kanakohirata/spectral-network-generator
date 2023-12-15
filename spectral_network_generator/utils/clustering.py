@@ -169,7 +169,7 @@ def _write_cluster_frame_core(dir_output, cluster_index_and_cluster_id_combinati
 
 def create_cluster_frame_for_grouped_spectra():
     with h5py.File('./spectrum_metadata.h5', 'r') as h5:
-        all_cluster_index_and_cluster_id_list = []
+        all_cluster_id_list = []
 
         # Create a list of tuples of sample cluster index and sample cluster id.
         # Cluster index is just an integer index.
@@ -183,7 +183,7 @@ def create_cluster_frame_for_grouped_spectra():
         sample_cluster_id_arr = np.core.defchararray.add(b'sample|', sample_accession_arr)
         for sample_cluster_id in sample_cluster_id_arr:
             sample_cluster_index_and_cluster_id_list.append((count, sample_cluster_id))
-            all_cluster_index_and_cluster_id_list.append((count, sample_cluster_id))
+            all_cluster_id_list.append(sample_cluster_id)
             count += 1
 
         # Create a dictionary which has dataset keyword as key and
@@ -205,13 +205,17 @@ def create_cluster_frame_for_grouped_spectra():
             ref_cluster_id_arr = np.core.defchararray.add(dataset_keyword_byte, ref_accession_arr)
             for ref_cluster_id in ref_cluster_id_arr:
                 ref_cluster_index_and_cluster_id_list.append((count, ref_cluster_id))
-                all_cluster_index_and_cluster_id_list.append((count, ref_cluster_id))
+                sample_cluster_id.append(ref_cluster_id)
                 count += 1
 
             ref_keyword_vs_cluster_index_and_cluster_id_dict[dataset_keyword] = ref_cluster_index_and_cluster_id_list
 
+    # Export all_cluster_id_list
+    with open('./cluster_ids.pickle', 'wb') as f:
+        pickle.dump(all_cluster_id_list, f)
+
     # Get maximum length of cluster id.
-    max_length_of_cluster_id = max(len(x[1]) for x in all_cluster_index_and_cluster_id_list)
+    max_length_of_cluster_id = max(len(x) for x in ref_cluster_id)
 
     # Create clustered score frame for samples: sample vs sample or sample vs reference ----------------------------
     sample_cluster_index_and_cluster_id_combination_list =\
@@ -222,7 +226,7 @@ def create_cluster_frame_for_grouped_spectra():
         sample_cluster_index_and_cluster_id_combination_list +=\
             list(itertools.product(sample_cluster_index_and_cluster_id_list, ref_cluster_index_and_cluster_id_list))
 
-    _write_cluster_frame_core('./scores/grouped_scores/sample',
+    _write_cluster_frame_core('./scores/grouped_and_clustered_scores/sample',
                               sample_cluster_index_and_cluster_id_combination_list,
                               max_length_of_cluster_id)
     # --------------------------------------------------------------------------------------------------------------
@@ -231,7 +235,7 @@ def create_cluster_frame_for_grouped_spectra():
     for dataset_keyword, ref_cluster_index_and_cluster_id_list in\
             ref_keyword_vs_cluster_index_and_cluster_id_dict.items():
 
-        output_dir = f'./scores/grouped_scores/{dataset_keyword}'
+        output_dir = f'./scores/grouped_and_clustered_scores/{dataset_keyword}'
 
         ref_cluster_index_and_cluster_id_combination_list =\
             itertools.combinations(ref_cluster_index_and_cluster_id_list, 2)
@@ -240,6 +244,8 @@ def create_cluster_frame_for_grouped_spectra():
                                   ref_cluster_index_and_cluster_id_combination_list,
                                   max_length_of_cluster_id)
     # --------------------------------------------------------------------------------------------------------------
+
+    return max_length_of_cluster_id
 
 
 if __name__ == '__main__':

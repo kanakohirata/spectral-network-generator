@@ -53,7 +53,8 @@ def add_metacyc_compound_info():
             df_metadata.loc[:, :'cmpd_classification_alternative_parent_list'].to_records(index=False),
             dtype=[
                 ('index', 'u8'), ('tag', H5PY_STR_TYPE),
-                ('keyword', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+                ('keyword', H5PY_STR_TYPE), ('cluster_id', H5PY_STR_TYPE),
+                ('source_filename', H5PY_STR_TYPE),
                 ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
                 ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
                 ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),

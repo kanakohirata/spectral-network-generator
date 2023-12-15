@@ -178,11 +178,12 @@ def generate_spectral_network(config_obj, _logger=None):
     # Calculate spectral similarity
     # -------------------------------
     config_obj.is_clustering_required = create_cluster_frame()
-    calculate_similarity_score(config_obj.mz_tol, config_obj.intensity_convert_mode)
+    calculate_similarity_score(config_obj.spec_matching_mode, config_obj.mz_tol, config_obj.intensity_convert_mode)
     clustering_based_on_inchikey()
 
     # -------
     # Output
     # -------
-    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.minimum_peak_match_to_output, config_obj.mz_tol)
+    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.minimum_peak_match_to_output,
+                    config_obj.mz_tol, config_obj.create_edge_within_layer_ref)
     write_cluster_attribute(cluster_attribute_path, config_obj.ref_split_category)

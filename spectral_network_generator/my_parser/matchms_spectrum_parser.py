@@ -228,7 +228,8 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
         _arr = np.array(spectrum_metadata_list,
                         dtype=[
                             ('index', 'u8'), ('tag', H5PY_STR_TYPE),
-                            ('keyword', H5PY_STR_TYPE), ('source_filename', H5PY_STR_TYPE),
+                            ('keyword', H5PY_STR_TYPE), ('cluster_id', H5PY_STR_TYPE),
+                            ('source_filename', H5PY_STR_TYPE),
                             ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
                             ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
                             ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),
@@ -411,3 +412,99 @@ def iter_filtered_spectra(return_path=False, return_index=False):
             yield spectra, start_idx, end_idx
         else:
             yield spectra
+
+
+def get_serialized_spectra_paths(dir_path):
+    """
+    Parameters
+    ----------
+    dir_path : str
+
+    Returns
+    -------
+    list
+        If dir_path includes '0-999.pickle', '1000-1999.pickle', '2000-2110.pickle',
+        the following list will be returned.
+        
+        list[('dir_path/0-999.pickle', 0, 999),
+             ('dir_path/1000-1999.pickle', 1000, 1999),
+             ('dir_path/2000-2110.pickle', 2000, 2110)]
+    """
+    path_vs_index_list = []
+
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and filename.endswith('.pickle'):
+            filename_without_ext = os.path.splitext(filename)[0]
+            start_idx = int(filename_without_ext.split('-')[0])
+            end_idx = int(filename_without_ext.split('-')[1])
+            path_vs_index_list.append((path, start_idx, end_idx))
+
+    path_vs_index_list.sort(key=lambda x: x[1])
+
+    return path_vs_index_list
+
+
+def get_sample_spectra_paths(dir_path='./serialized_spectra/grouped/sample'):
+    """
+    Parameters
+    ----------
+    dir_path : str
+
+    Returns
+    -------
+    list
+        If dir_path includes '0-999.pickle', '1000-1999.pickle', '2000-2110.pickle',
+        the following list will be returned.
+
+        list[('dir_path/0-999.pickle', 0, 999),
+             ('dir_path/1000-1999.pickle', 1000, 1999),
+             ('dir_path/2000-2110.pickle', 2000, 2110)]
+    """
+    
+    return get_serialized_spectra_paths(dir_path)
+
+
+def get_ref_spectra_paths(parent_dir_path='./serialized_spectra/grouped'):
+    """
+    Parameters
+    ----------
+    parent_dir_path : str
+        A path of folders which include referene spectra files.
+
+    Returns
+    -------
+    list
+        parent_dir_path
+            |- ref_folder_1
+                |- 0-999.pickle
+                |- 1000-1999.pickle
+                |- 2000-2110.pickle
+            |- ref_folder_2
+                |- 0-700.pickle
+        
+        For a directory structure like the above, the following dictionary will be returned.
+        
+        dict{'ref_folder_1': [('dir_path/0-999.pickle', 0, 999),
+                              ('dir_path/1000-1999.pickle', 1000, 1999),
+                              ('dir_path/2000-2110.pickle', 2000, 2110)]
+             'ref_folder_2': [('dir_path/0-700.pickle', 0, 700)]}
+    """
+
+    ref_folders = []
+
+    for name in os.listdir(parent_dir_path):
+        if name == 'sample':
+            continue
+
+        path = os.path.join(parent_dir_path, name)
+        if os.path.isdir(path):
+            ref_folders.append(path)
+
+    dataset_keyword_vs_spectra_paths = {}
+    for ref_folder in ref_folders:
+        keyword = os.path.basename(ref_folder)
+        paths = get_serialized_spectra_paths(ref_folder)
+        dataset_keyword_vs_spectra_paths[keyword] = paths
+
+    return dataset_keyword_vs_spectra_paths
