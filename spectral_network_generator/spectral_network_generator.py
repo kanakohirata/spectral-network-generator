@@ -181,37 +181,44 @@ def generate_spectral_network(config_obj, _logger=None):
     for _filename in config_obj.list_sample_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-
+    
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-
+    
             write_metadata('./spectrum_metadata/raw/sample_metadata.npy', _spectra, export_tsv=True)
-
+    
     # Write metadata of reference spectra --------------------------------------------------------------
     for _filename in config_obj.list_ref_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-
+    
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-
+    
             write_metadata('./spectrum_metadata/raw/ref_metadata.npy', _spectra, export_tsv=True)
-
+    
     # Write metadata of blank spectra --------------------------------------------------------------
     for _filename in config_obj.list_blank_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-
+    
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-
+    
             write_metadata('./spectrum_metadata/raw/blank_metadata.npy', _spectra, export_tsv=True)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
-    remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)
+    remove_blank_spectra_from_sample_spectra(
+        './spectrum_metadata/raw/blank_metadata.npy', './spectrum_metadata/raw/sample_metadata.npy',
+        './spectrum_metadata/filtered/sample_metadata.npy',
+        mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank,
+        export_tsv=True)
 
     # ------------------------------------------------
     # Add external compound data to reference spectra

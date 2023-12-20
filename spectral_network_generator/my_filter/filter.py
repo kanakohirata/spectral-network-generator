@@ -2,8 +2,13 @@ import h5py
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
+import os
 import re
+
+import pandas as pd
+
 from my_parser.spectrum_metadata_parser import get_chunks
+from utils import split_array
 
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
@@ -17,7 +22,7 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def remove_blank_spectra_from_sample_spectra(mz_tolerance=0.01, rt_tolerance=0.1):
+def remove_blank_spectra_from_sample_spectra_old(mz_tolerance=0.01, rt_tolerance=0.1):
     with h5py.File('./spectrum_metadata.h5', 'a') as h5:
         blank_arr = h5['metadata'][(h5['metadata'].fields('tag')[()].astype(str) == 'blank')
                                    & (h5['metadata'].fields('precursor_mz')[()] != 0)
@@ -65,6 +70,73 @@ def remove_blank_spectra_from_sample_spectra(mz_tolerance=0.01, rt_tolerance=0.1
         h5.create_dataset('filtered/metadata', data=h5['filtered/_metadata'][()], shape=h5['filtered/_metadata'].shape, maxshape=(None,))
         del h5['filtered/_metadata']
         h5.flush()
+
+
+def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadata_path, output_path,
+                                             mz_tolerance=0.01, rt_tolerance=0.1, export_tsv=False):
+    if not os.path.isfile(blank_metadata_path):
+        return
+
+    # Load blank metadata array
+    blank_arr = np.load(blank_metadata_path, allow_pickle=True)
+    if not blank_arr.size:
+        return
+
+    # Extract blank array where 'precursor_mz' and 'rt_in_sec' are not 0.
+    blank_arr = blank_arr[['precursor_mz', 'rt_in_sec']]
+    blank_arr = blank_arr[(blank_arr['precursor_mz'] != 0) & (blank_arr['rt_in_sec'] != 0)]
+
+    if not blank_arr.size:
+        return
+
+    # Load sample metadata array
+    sample_arr_all = np.load(sample_metadata_path, allow_pickle=True)
+    if not sample_arr_all.size:
+        return
+
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    # Iterate sample metadata array per 10000 rows.
+    for arr, chunk_start, chunk_end in split_array(sample_arr_all, 10000):
+        # Extract sample array where 'precursor_mz' and 'rt_in_sec' are not 0.
+        mask_target_sample = (arr['precursor_mz'] != 0) & (arr['rt_in_sec'] != 0)
+        sample_arr = arr[mask_target_sample]
+        idx_arr_to_retain = arr['index'][~mask_target_sample]
+
+        if sample_arr.size:
+            sample_mz = sample_arr['precursor_mz']
+            sample_rt = sample_arr['rt_in_sec']
+
+            mz_diff = np.abs(sample_mz[:, np.newaxis] - blank_arr['precursor_mz']) <= mz_tolerance
+            rt_diff = np.abs(sample_rt[:, np.newaxis] - blank_arr['rt_in_sec']) <= rt_tolerance
+
+            mz_and_rt_diff = np.logical_and(mz_diff, rt_diff)
+            mz_and_rt_diff_inverted = np.invert(mz_and_rt_diff)
+            mask = np.all(mz_and_rt_diff_inverted, axis=1)
+
+            filtered_sample_idx_arr = sample_arr['index'][mask]
+            idx_arr = np.append(filtered_sample_idx_arr, idx_arr_to_retain)
+        else:
+            idx_arr = idx_arr_to_retain
+
+        if idx_arr.size:
+            idx_arr.sort()
+            arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
+
+            # Append arr_to_retain to an already existing array.
+            if os.path.isfile(output_path):
+                existing_arr = np.load(output_path, allow_pickle=True)
+                arr_to_retain = np.hstack((existing_arr, arr_to_retain))
+
+            np.save(output_path, arr_to_retain)
+            
+            if export_tsv:
+                tsv_path = os.path.splitext(output_path)[0] + '.tsv'
+                df = pd.DataFrame.from_records(arr_to_retain)
+                df.to_csv(tsv_path, sep='\t', index=False)
 
 
 def filter_reference_spectra(config_obj, _logger=None):

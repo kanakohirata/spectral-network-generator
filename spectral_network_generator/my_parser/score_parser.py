@@ -274,7 +274,7 @@ def split_array(arr, row_size):
             yield split_arr
         
         remainder = arr.shape[0] % row_size
-        yield arr[-remainder]
+        yield arr[-remainder:]
     
                 
 
