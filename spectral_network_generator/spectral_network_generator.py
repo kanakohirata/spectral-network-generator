@@ -45,8 +45,16 @@ def generate_spectral_network(config_obj, _logger=None):
 
     initialize_serialize_spectra_file()
     initialize_spectrum_metadata_file()
-    read_meta.initialize_metacyc_hdf5('./metacyc.h5')
-    read_meta.initialize_metacyc_hdf5('./metacyc_for_filter.h5')
+
+    # Remove metacyc files -----------------------------------------
+    metacyc_files = {'compound': './metacyc_compound.npy',
+                     'pathway': './metacyc_pathway.npy',
+                     'filter': './metacyc_pathway_for_filter.npy'}
+    for _p in metacyc_files.values():
+        if os.path.isfile(_p):
+            os.remove(_p)
+    # --------------------------------------------------------------
+
     initialize_score_hdf5()
     initialize_score_files()
 
@@ -233,13 +241,16 @@ def generate_spectral_network(config_obj, _logger=None):
                            './spectrum_metadata/raw/ref_metadata.npy'])
 
     if config_obj.metacyc_cmpd_dat_path:
-        read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
-                                                      parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+        read_meta.convert_metacyc_compounds_dat_to_npy(config_obj.metacyc_cmpd_dat_path,
+                                                       output_path=metacyc_files['compound'],
+                                                       parameters_to_open_file=dict(encoding='utf8', errors='replace'))
     if config_obj.metacyc_pathway_dat_path:
-        read_meta.convert_metacyc_pathways_dat_to_h5(config_obj.metacyc_pathway_dat_path, output_path='./metacyc.h5',
-                                                     parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+        read_meta.convert_metacyc_pathways_dat_to_npy(config_obj.metacyc_pathway_dat_path,
+                                                      output_path=metacyc_files['pathway'],
+                                                      parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+
     if config_obj.metacyc_cmpd_dat_path and config_obj.metacyc_pathway_dat_path:
-        read_meta.assign_pathway_id_to_compound_in_h5('./metacyc.h5')
+        read_meta.assign_pathway_id_to_compound_in_npy(metacyc_files['compound'], metacyc_files['pathway'])
     
     add_metacyc_compound_info()
     
@@ -249,8 +260,9 @@ def generate_spectral_network(config_obj, _logger=None):
     logger.debug('Read external compound file for filtering')
     for _path in config_obj.list_path_compound_dat_for_filter:
         logger.debug(f"filename: {os.path.basename(_path)}")
-        read_meta.read_metacyc_compounds_dat(_path, output_path='./metacyc_for_filter.h5',
-                                             parameters_to_open_file=dict(encoding='utf8', errors='replace'))
+        read_meta.convert_metacyc_compounds_dat_to_npy(_path,
+                                                       output_path=metacyc_files['filter'],
+                                                       parameters_to_open_file=dict(encoding='utf8', errors='replace'))
 
     report.info(f"\nfiles NOT to be filtered {str(config_obj.list_filename_avoid_filter)}\n")
     filter_reference_spectra(config_obj, report)

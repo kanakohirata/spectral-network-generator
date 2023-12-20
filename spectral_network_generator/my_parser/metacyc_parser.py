@@ -109,6 +109,30 @@ def initialize_metacyc_hdf5(path):
         h5.create_dataset('pathway', dtype='f')
 
 
+def get_metacyc_compound_dtype():
+    dtype = [
+        ('filename', 'O'),  # str
+        ('unique_id', 'O'),  # str
+        ('common_name', 'O'),  # str
+        ('inchikey', 'O'),  # str
+        ('inchi', 'O'),  # str
+        ('smiles', 'O'),  # str
+        ('pathway_unique_id_list', 'O'),  # list
+        ('pathway_common_name_list', 'O')  # list
+    ]
+    return dtype
+
+
+def get_metacyc_pathway_dtype():
+    dtype = [
+        ('filename', 'O'),  # str
+        ('unique_id', 'O'),  # str
+        ('common_name', 'O'),  # str
+        ('compound_unique_id_list', 'O')  # list
+    ]
+    return dtype
+
+
 def convert_metacyc_compounds_dat_to_h5(path, output_path, parameters_to_open_file=None):
     LOGGER.debug(f'Read {path}')
 
@@ -182,6 +206,93 @@ def convert_metacyc_compounds_dat_to_h5(path, output_path, parameters_to_open_fi
             dset[current_length:] = _arr
 
         h5.flush()
+
+
+def convert_metacyc_compounds_dat_to_npy(path, output_path, parameters_to_open_file=None):
+    LOGGER.debug(f'Read {path}')
+
+    if not isinstance(parameters_to_open_file, dict):
+        parameters_to_open_file = dict(encoding='utf8')
+    filename = os.path.basename(path)
+
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    # flags
+    flag_hit_inchi_key = 0
+
+    dtypes = get_metacyc_compound_dtype()
+
+    data = []
+    with open(path, 'r', **parameters_to_open_file) as f:
+        for each_line in f:
+            if each_line.startswith("//"):
+                #  end of a compound info
+                # if you did not find inchi key, you have to generate it.
+                if flag_hit_inchi_key == 0 and len(inchi) > 2:
+                    inchikey = Chem.InchiToInchiKey(inchi)
+
+                # append it,
+                current_data = []
+                for field_name, _ in dtypes:
+                    if field_name == 'filename':
+                        current_data.append(filename)
+                    elif field_name == 'unique_id':
+                        current_data.append(unique_id)
+                    elif field_name == 'common_name':
+                        current_data.append(common_name)
+                    elif field_name == 'inchikey':
+                        current_data.append(inchikey)
+                    elif field_name == 'inchi':
+                        current_data.append(inchi)
+                    elif field_name == 'smiles':
+                        current_data.append(smiles)
+                    elif field_name == 'pathway_unique_id_list':
+                        current_data.append([])
+                    elif field_name == 'pathway_common_name_list':
+                        current_data.append([])
+
+                data.append(tuple(current_data))
+
+                # initialize flags
+                flag_hit_inchi_key = 0
+
+            # get common name of compound ------------------------------
+            #  common_name: COMMON-NAME - 2-nitrogenization
+            elif each_line.startswith("COMMON-NAME"):
+                common_name = str(each_line.split(" - ")[1].strip("\n"))
+
+            # get unique id of compound ------------------------------
+            #  unique_id: UNIQUE-ID - PWY-6398
+            elif each_line.startswith("UNIQUE-ID"):
+                unique_id = str(each_line.split(" - ")[1].strip("\n"))
+
+            # get inchi string ------------------------------
+            #  inchi: INCHI - INCHI=1S/C7H15N2O8P/c8-1-4(10)9-7-6(12)5(11)3(17-7)2-16-18(13,14)1
+            elif each_line.startswith("INCHI -"):
+                inchi = str(each_line.replace('INCHI - ', '')).strip("\n")
+
+            # get inchi key ------------------------------
+            #  inchikey: INCHI-KEY - InChIKey=KFWWCMJSYSSPSK-BOGFJHSMSA-J
+            elif each_line.startswith("INCHI-KEY"):
+                flag_hit_inchi_key = 1
+                inchikey = str(each_line.replace('INCHI-KEY - InChIKey=', '')).strip("\n")
+
+            # get smile string ------------------------------
+            #  smile: SMILES - CNC(=O)CCC([N+])C(=O)[O-]
+            elif each_line.startswith("SMILES - "):
+                smiles = str(each_line.replace('SMILES - ', '')).strip("\n")
+
+    arr = np.array(data, dtype=dtypes)
+
+    # Add already existing array to arr.
+    if os.path.isfile(output_path):
+        existing_arr = np.load(output_path, allow_pickle=True)
+        arr = np.hstack((existing_arr, arr))
+
+    np.save(output_path, arr)
 
 
 def read_metacyc_compounds_dat(filepath, output_path, parameters_to_open_file=None):
@@ -374,6 +485,100 @@ def convert_metacyc_pathways_dat_to_h5(path, output_path, parameters_to_open_fil
         h5.flush()
 
 
+def convert_metacyc_pathways_dat_to_npy(path, output_path, parameters_to_open_file=None):
+    LOGGER.debug(f'Read {path}')
+    if not isinstance(parameters_to_open_file, dict):
+        parameters_to_open_file = dict(encoding='utf8')
+    filename = os.path.basename(path)
+
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+        
+    dtypes = get_metacyc_pathway_dtype()
+
+    str_list_compound_unique_id = ''
+    compound_unique_id_list = []
+    data = []
+
+    with open(path, 'r', **parameters_to_open_file) as f:
+        for each_line in f:
+            if each_line.startswith("//"):
+
+                current_data = []
+                for field_name, _ in dtypes:
+                    if field_name == 'filename':
+                        current_data.append(filename)
+                    elif field_name == 'unique_id':
+                        current_data.append(unique_id)
+                    elif field_name == 'common_name':
+                        current_data.append(common_name)
+                    elif field_name == 'compound_unique_id_list':
+                        current_data.append(compound_unique_id_list)
+
+                data.append(tuple(current_data))
+
+                # initialize compound_unique_id_list
+                compound_unique_id_list = []
+
+            # get unique id of the pathway ------------------------------
+            #  unique_id: UNIQUE-ID - PWY-6398
+            elif each_line.startswith("UNIQUE-ID"):
+                unique_id = str(each_line.split(" - ")[1].strip("\n"))
+
+            # get common name of the pathway ------------------------------
+            elif each_line.startswith("COMMON-NAME"):
+                common_name = str(each_line.split(" - ")[1].strip("\n"))
+
+            # read reaction layout line and get unique id of the compounds related in the pathway -------------
+            # reaction layout REACTION-LAYOUT
+            elif each_line.startswith("REACTION-LAYOUT"):
+                # list_primaries_uniq_id = re.findall("PRIMARIES ([^\)]+)\)", each_line)
+                reg_left_primaries = re.compile(r"LEFT-PRIMARIES ([^)]+)\)")
+                reg_right_primaries = re.compile(r"RIGHT-PRIMARIES ([^)]+)\)")
+
+                left_primaries_uniq_id_line = ''
+                match = reg_left_primaries.search(each_line)
+                if match is not None:
+                    left_primaries_uniq_id_line = match.group(1)
+
+                right_primaries_uniq_id_line = ''
+                match = reg_right_primaries.search(each_line)
+                if match is not None:
+                    right_primaries_uniq_id_line = match.group(1)
+
+                # for direction -----------------------
+                direction = ""
+                reg_direction = re.compile(r"DIRECTION:([^)]+)\)")
+                match = reg_direction.search(each_line)
+                if match is not None:
+                    direction = match.group(1)
+
+                LOGGER.debug("direction:", direction)
+                LOGGER.debug("left_primaries_uniq_id_line ", left_primaries_uniq_id_line)
+                LOGGER.debug("right_primaries_uniq_id_line", right_primaries_uniq_id_line)
+
+                list_left_primaries_uniq_id = [x.strip() for x in left_primaries_uniq_id_line.split() if x.strip()]
+                list_right_primaries_uniq_id = [x.strip() for x in right_primaries_uniq_id_line.split() if x.strip()]
+
+                # append compound unique-id to the list
+                compound_unique_id_list = list_left_primaries_uniq_id + list_right_primaries_uniq_id
+
+                # removing redundant after appending to the list for the object
+                # this is not right way/time/place to remove redundant, but it is easy to organize.
+                # curr_pathway_obj.list_compound_unique_id = list(set(curr_pathway_obj.list_compound_unique_id))
+
+    arr = np.array(data, dtype=dtypes)
+
+    # Add already existing array to arr.
+    if os.path.isfile(output_path):
+        existing_arr = np.load(output_path, allow_pickle=True)
+        arr = np.hstack((existing_arr, arr))
+
+    np.save(output_path, arr)
+
+
 def read_metacyc_pathways_dat(path, output_path, parameters_to_open_file=None):
     if not isinstance(parameters_to_open_file, dict):
         parameters_to_open_file = {}
@@ -551,6 +756,47 @@ def assign_pathway_id_to_compound_in_h5(path):
         del h5['compound']
         h5.create_dataset('compound', data=new_compound_arr, shape=new_compound_arr.shape, maxshape=(None,))
         h5.flush()
+
+
+def assign_pathway_id_to_compound_in_npy(compound_path, pathway_path):
+    if (not os.path.isfile(compound_path)) or (not os.path.isfile(pathway_path)):
+        return
+
+    # Load compound array
+    arr_compound = np.load(compound_path, allow_pickle=True)
+    if not arr_compound.size:
+        return
+
+    # Load pathway array
+    arr_pathway = np.load(pathway_path, allow_pickle=True)
+    if not arr_pathway.size:
+        return
+
+    ser_compound_unique_ids = pd.Series(arr_pathway['compound_unique_id_list'])
+
+    # Get unique_id and common_name of pathway.
+    pathway_unique_id_data = []
+    pathway_common_name_data = []
+    for rec in arr_compound:
+        pathway_unique_id_list = []
+        pathway_common_name_list = []
+        mask = ser_compound_unique_ids.apply(lambda ids: rec['unique_id'] in ids)
+        if np.any(mask):
+            arr_pathway_unique_id = arr_pathway['unique_id'][mask]
+            pathway_unique_id_list = list(arr_pathway_unique_id)
+
+            arr_pathway_common_name = arr_pathway['common_name'][mask]
+            pathway_common_name_list = list(arr_pathway_common_name)
+
+        pathway_unique_id_data.append(pathway_unique_id_list)
+        pathway_common_name_data.append(pathway_common_name_list)
+
+    # Assign pathway_unique_id_data and pathway_common_name_data to arr_compound
+    arr_compound['pathway_unique_id_list'] = pathway_unique_id_data
+    arr_compound['pathway_common_name_list'] = pathway_common_name_data
+
+    # Update array file.
+    np.save(compound_path, arr_compound)
 
 
 def read_plantcyc_compounds(path, parameters_to_open_file=None):
