@@ -252,7 +252,7 @@ def generate_spectral_network(config_obj, _logger=None):
     if config_obj.metacyc_cmpd_dat_path and config_obj.metacyc_pathway_dat_path:
         read_meta.assign_pathway_id_to_compound_in_npy(metacyc_files['compound'], metacyc_files['pathway'])
     
-    add_metacyc_compound_info()
+    add_metacyc_compound_info(metacyc_files['compound'], './spectrum_metadata/raw/ref_metadata.npy', export_tsv=True)
     
     # ------------------------------------
     # External compound file for filtering
