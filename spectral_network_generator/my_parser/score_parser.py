@@ -13,29 +13,41 @@ def initialize_score_hdf5(path='./score.h5'):
         pass
 
 
-def delete_score_files(scores_dir='./scores',
-                       clustered_scores_dir='./scores/clustered_scores',
-                       grouped_scores_dir='./scores/grouped_scores',
-                       grouped_and_clustered_scores_dir='./scores/grouped_and_clustered_scores'):
-    for f in os.listdir(scores_dir):
-        p = os.path.join(scores_dir, f)
-        if os.path.isfile(p):
-            os.remove(p)
+def initialize_score_files(scores_dir='./scores',
+                           clustered_scores_dir='./scores/clustered_scores',
+                           grouped_scores_dir='./scores/grouped_scores',
+                           grouped_and_clustered_scores_dir='./scores/grouped_and_clustered_scores'):
+    if not os.path.isdir(scores_dir):
+        os.makedirs(scores_dir)
+    else:
+        for f in os.listdir(scores_dir):
+            p = os.path.join(scores_dir, f)
+            if os.path.isfile(p):
+                os.remove(p)
 
-    for f in os.listdir(clustered_scores_dir):
-        p = os.path.join(clustered_scores_dir, f)
-        if os.path.isfile(p):
-            os.remove(p)
+    if not os.path.isdir(clustered_scores_dir):
+        os.makedirs(clustered_scores_dir)
+    else:
+        for f in os.listdir(clustered_scores_dir):
+            p = os.path.join(clustered_scores_dir, f)
+            if os.path.isfile(p):
+                os.remove(p)
 
-    for f in os.listdir(grouped_scores_dir):
-        p = os.path.join(grouped_scores_dir, f)
-        if os.path.isdir(p):
-            shutil.rmtree(p)
+    if not os.path.isdir(grouped_scores_dir):
+        os.makedirs(grouped_scores_dir)
+    else:
+        for f in os.listdir(grouped_scores_dir):
+            p = os.path.join(grouped_scores_dir, f)
+            if os.path.isdir(p):
+                shutil.rmtree(p)
 
-    for f in os.listdir(grouped_and_clustered_scores_dir):
-        p = os.path.join(grouped_and_clustered_scores_dir, f)
-        if os.path.isdir(p):
-            shutil.rmtree(p)
+    if not os.path.isdir(grouped_and_clustered_scores_dir):
+        os.makedirs(grouped_and_clustered_scores_dir)
+    else:
+        for f in os.listdir(grouped_and_clustered_scores_dir):
+            p = os.path.join(grouped_and_clustered_scores_dir, f)
+            if os.path.isdir(p):
+                shutil.rmtree(p)
 
 
 def get_chunks(key, db_chunk_size=10000, path='./score.h5'):

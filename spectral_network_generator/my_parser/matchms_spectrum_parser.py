@@ -3,6 +3,7 @@ import h5py
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
+from matchms import Spectrum
 from matchms.filtering import (add_retention_time, add_retention_index, derive_inchi_from_smiles,
                                derive_inchikey_from_inchi, normalize_intensities, select_by_relative_intensity)
 from matchms.importing import load_from_json, load_from_mgf, load_from_msp
@@ -28,48 +29,113 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def initialize_serialize_spectra_file():
-    if not os.path.isdir('./serialized_spectra/filtered'):
-        os.makedirs('./serialized_spectra/filtered')
-    
-    if not os.path.isdir('./serialized_spectra/grouped'):
-        os.makedirs('./serialized_spectra/grouped')
+def initialize_serialize_spectra_file(dir_path='./serialized_spectra'):
+    if not os.path.isdir(dir_path):
+        os.makedirs(dir_path)
+    else:
+        for f in os.listdir(dir_path):
+            p = os.path.join(dir_path, f)
+            if os.path.isdir(p):
+                shutil.rmtree(p)
+            elif os.path.splitext(f)[1] == '.pickle':
+                os.remove(p)
 
-    for p in glob('./serialized_spectra/*.pickle'):
-        os.remove(p)
+    dir_path_raw = os.path.join(dir_path, 'raw')
+    if not os.path.isdir(dir_path_raw):
+        os.makedirs(dir_path_raw)
 
-    for p in glob('./serialized_spectra/filtered/*.pickle'):
-        os.remove(p)
+    dir_path_filtered = os.path.join(dir_path, 'filtered')
+    if not os.path.isdir(dir_path_filtered):
+        os.makedirs(dir_path_filtered)
 
-    for f in os.listdir('./serialized_spectra/grouped'):
-        p = os.path.join('./serialized_spectra/grouped', f)
-        if os.path.isdir(p):
-            shutil.rmtree(p)
+    dir_path_grouped = os.path.join(dir_path, 'grouped')
+    if not os.path.isdir(dir_path_grouped):
+        os.makedirs(dir_path_grouped)
 
 
-def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.001, is_introduce_random_mass_shift=False,
-                               deisotope_int_ratio=-1, deisotope_mz_tol=0, binning_top_n=0, binning_range=-1,
-                               matching_top_n_input=-1, _logger=None):
+def _convert_str_to_float(string):
+    if not isinstance(string, str):
+        return string
+
+    try:
+        return float(re.search(r'\d*\.?\d+', string).group())
+    except TypeError:
+        return 0.0
+
+
+def set_retention_time_in_sec(spectrum: Spectrum, convert_min_to_sec: bool):
+    """
+
+    Parameters
+    ----------
+    spectrum : matchms.Spectrum
+    convert_min_to_sec : bool
+        If convert_min_to_sec is True, retention time is considered to be in minutes and is converted to seconds.
+
+    Returns
+    -------
+    matchms.Spectrum
+        Spectrum with 'retention_time' and 'rt_in_sec' information.
+    """
+    retention_time_keys = ['retention_time', 'retentiontime', 'rt', 'scan_start_time', 'rt_query']
+    rt = 0.0
+
+    if spectrum.get('rtinseconds'):
+        rt = _convert_str_to_float(spectrum.get('rtinseconds'))
+    elif spectrum.get('rtinminutes'):
+        rt = _convert_str_to_float(spectrum.get('rtinminutes')) * 60
+    else:
+        for k in retention_time_keys:
+            if spectrum.get(k):
+                rt = _convert_str_to_float(spectrum.get(k))
+
+                if convert_min_to_sec:
+                    rt = rt * 60
+
+                break
+
+    spectrum.set('retention_time', rt)
+    spectrum.set('rt_in_sec', rt)
+    return spectrum
+
+
+def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir, global_index_start,
+                               intensity_threshold=0.001,
+                               is_introduce_random_mass_shift=False,
+                               deisotope_int_ratio=-1,
+                               deisotope_mz_tol=0,
+                               binning_top_n=0, binning_range=-1,
+                               matching_top_n_input=-1,
+                               _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
         logger = LOGGER
 
-    last_index = -1
-    with h5py.File('spectrum_metadata.h5', 'r') as h5:
-        if 'metadata' in h5.keys():
-            last_index = h5['metadata'].len() - 1
+    # If number of spectra is length_to_export, spectra is serialized.
+    length_to_export = 1000
 
-    serialized_spectra_path_to_rename = ''
-    if last_index != -1 and float(last_index / 1000) * 1000 != 999:
-        _old_serialized_spectra_idx_start = int(max(int(last_index / 1000) * 1000, 0))
-        _old_serialized_spectra_idx_end = last_index
-        serialized_spectra_path_to_rename = f'./serialized_spectra/{_old_serialized_spectra_idx_start}' \
-                                            f'-{_old_serialized_spectra_idx_end}.pickle'
+    # Make a folder if it does not exist.
+    if not os.path.isdir(serialized_spectra_dir):
+        os.makedirs(serialized_spectra_dir)
+
+    # Get file paths in serialized_spectra_dir
+    serialized_spectra_paths = get_serialized_spectra_paths(serialized_spectra_dir)
+    if not serialized_spectra_paths:
+        last_index = -1
+    else:
+        last_index = serialized_spectra_paths[-1][2]
+
+    index = last_index + 1
+    global_index = global_index_start
+
+    serialized_spectra_path_to_update = ''
+    # When there is a file containing fewer than length_to_export spectra, they will be added.
+    if last_index != -1 and (last_index + 1) % length_to_export != 0:
+        serialized_spectra_path_to_update = serialized_spectra_paths[-1]
 
     logger.info(f'Read spectral data: {spectra_path}')
 
-    spectrum_metadata_list = []
     _count = 0
     spectra_filename = os.path.basename(spectra_path)
     logger.info(f'Filename: {spectra_filename}')
@@ -77,52 +143,84 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
     if spectra_filename.endswith('.msp'):
         logger.info('Load from msp')
         spectra_file = load_from_msp(spectra_path)
+        spectra_file_for_rt = load_from_msp(spectra_path)
     elif spectra_filename.endswith('.mgf'):
         logger.info('Load from mgf')
         spectra_file = load_from_mgf(spectra_path)
+        spectra_file_for_rt = load_from_mgf(spectra_path)
     elif spectra_filename.endswith('.json'):
         logger.info('Load from json')
         spectra_file = load_from_json(spectra_path)
+        spectra_file_for_rt = load_from_json(spectra_path)
 
         if not spectra_file:
             spectra_file = convert_json_to_matchms_spectra(spectra_path)
+            spectra_file_for_rt = spectra_file
     else:
-        return
+        return global_index
 
     if not spectra_file:
-        return
+        return global_index
 
     if is_introduce_random_mass_shift:
         logger.info(f'Introduce random mass shift: {spectra_filename}')
-    
+
+    # Collect retention time ( not sure min or sec) ---------------------------------------------------
+    # Obtain all retention times in advance and estimate whether they are in minutes or seconds.
+    retention_time_keys = ['retention_time', 'retentiontime', 'rt', 'scan_start_time', 'rt_query']
+    retention_time_list = []
+    for _s in spectra_file_for_rt:
+        rt = 0.0
+        for k in retention_time_keys:
+            if _s.get(k):
+                rt = _s.get(k)
+                if isinstance(rt, str):
+                    try:
+                        rt = float(re.search(r'\d*\.?\d+', rt).group())
+                    except TypeError:
+                        rt = 0.0
+                break
+
+        retention_time_list.append(rt)
+
+    # we assume lc-run is about 5 min to 100 min
+    # therefore, if max retention time is more than 100, it means RT is in sec.
+    is_rt_in_min = False
+    if max(retention_time_list) <= 100:
+        is_rt_in_min = True
+    # -------------------------------------------------------------------------------------------------
+
+    # Add metadata to spectra and serialize them.
     _spectra = []
     for _s in spectra_file:
-        last_index += 1
-        _s.set('index', last_index)
+        _s.set('index', global_index)
+
+        # Normalize intensities (Max = 1).
+        _s = normalize_intensities(_s)
+
+        # Retain peaks with intensity >= intensity_threshold.
+        _s = select_by_relative_intensity(_s, intensity_from=intensity_threshold)
 
         if is_introduce_random_mass_shift:
+            # Add random numbers to m/z values.
             _s = introduce_random_delta_to_mz(_s, 0, 50)
 
         if deisotope_int_ratio > 0:
             _s = deisotope(_s, deisotope_mz_tol, deisotope_int_ratio)
 
         if binning_range > 0:
+            # Retain the top N intense peaks in each bin.
             _s = set_top_n_most_intense_peaks_in_bin(_s, binning_top_n, binning_range)
 
         if matching_top_n_input > 0:
+            # Retain the top N intense peaks.
             _s = set_top_n_most_intense_peaks(_s, matching_top_n_input)
 
-        _s = normalize_intensities(_s)
-        _s = add_retention_time(_s)
+        # Set retention time in sec to 'retention_time' and 'rt_in_sec' of metadata.
+        _s = set_retention_time_in_sec(_s, is_rt_in_min)
         _s = add_retention_index(_s)
-        _s = select_by_relative_intensity(_s, intensity_from=intensity_threshold)
 
-        _rt_in_sec = 0
-        if _s.get('retention_time'):
-            _rt_in_sec = _s.get('retention_time')
-        elif _s.get('rtinminutes'):
-            _rt_in_sec = float(_s.get('rtinminutes')) * 60
-
+        # Add smiles and inchi
         if not _s.get('smiles') and _s.get('computed_smiles'):
             _s.set('smiles', _s.get('computed_smiles'))
         if not _s.get('inchi') and _s.get('computed_inchi'):
@@ -130,6 +228,8 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
 
         _s = derive_inchi_from_smiles(_s)
         _s = derive_inchikey_from_inchi(_s)
+
+        # Add accession number and global accession.
         if _s.get('accession_number'):
             pass
         elif _s.get('accession'):
@@ -145,121 +245,72 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, intensity_threshold=0.
             _s.set('accession_number', str(_count))
             _s.set('global_accession', f'{_count}|{spectra_filename}')
 
+        # Add title
         if _s.get('title'):
             pass
         else:
             _s.set('title', str(_count))
+
+        # Add source filename and tag.
         _s.set('source_filename', spectra_filename)
-
-        str_peaks = ', '.join(map(lambda x: f'[{x[0]}, {x[1]}]', _s.peaks))
-        str_peaks = '[' + str_peaks + ']'
-        str_mz = '[' + ', '.join(map(lambda x: str(x), _s.mz)) + ']'
-
-        spectrum_metadata_list.append((
-            last_index,
-            dataset_tag,
-            '',  # dataset keyword
-            spectra_filename,
-            _s.get('global_accession', ''),
-            _s.get('accession_number', ''),
-            _s.get('precursor_mz', 0),
-            _rt_in_sec,
-            _s.get('retention_index', 0) or 0,
-            _s.get('inchi', ''),
-            _s.get('inchikey', ''),
-            _s.get('author', ''),
-            _s.get('compound_name', ''),
-            _s.get('title', ''),
-            _s.get('instrument_type', ''),
-            _s.get('ionization_mode') or _s.get('ionization') or _s.get('ion_mode') or _s.get('ionmode', ''),
-            _s.get('precursor_type', ''),
-            _s.get('fragmentation_type') or _s.get('fragmentation_mode') or _s.get('fragmentation', ''),
-            _s.mz.size,
-            str_peaks,
-            str_mz,
-            '', '', '',
-            _s.get('classification_superclass', ''),
-            _s.get('classification_class', ''),
-            _s.get('classification_subclass', ''),
-            _s.get('classification_alternative_parent', ''),
-        ))
+        _s.set('tag', dataset_tag)
 
         _spectra.append(_s)
         _count += 1
+        global_index += 1
 
-        if (last_index + 1) % 1000 == 0:
-            _serialized_spectra_idx_start = last_index - 999
-            _serialized_spectra_idx_end = last_index
-            _serialized_spectra_path = f'./serialized_spectra/' \
-                                       f'{_serialized_spectra_idx_start}-{_serialized_spectra_idx_end}.pickle'
+        # If number of spectra is length_to_export, spectra is serialized. ---------------------------------------
+        if (index + 1) % length_to_export == 0:
+            _serialized_spectra_idx_start = index - (length_to_export - 1)
+            _serialized_spectra_idx_end = index
+            _serialized_spectra_path = os.path.join(
+                serialized_spectra_dir, f'{_serialized_spectra_idx_start}-{_serialized_spectra_idx_end}.pickle')
 
-            if serialized_spectra_path_to_rename:
-                os.rename(serialized_spectra_path_to_rename, _serialized_spectra_path)
-                serialized_spectra_path_to_rename = ''
-
-            time.sleep(0.5)
-            try:
-                with open(_serialized_spectra_path, 'rb') as fr:
+            # Get already serialized spectra
+            _spectra_old = []
+            if serialized_spectra_path_to_update:
+                with open(serialized_spectra_path_to_update, 'rb') as fr:
                     _spectra_old = pickle.load(fr)
-            except (EOFError, FileNotFoundError):
-                _spectra_old = []
+
+                # Remove a file containing fewer than length_to_export spectra.
+                os.remove(serialized_spectra_path_to_update)
+                serialized_spectra_path_to_update = ''
+
             with open(_serialized_spectra_path, 'wb') as f:
-                pickle.dump(_spectra_old + _spectra, f)
+                _spectra = _spectra_old + _spectra
+
+                if len(_spectra) != length_to_export:
+                    raise ValueError(f'Number of spectra to serialize should be {length_to_export}')
+
+                pickle.dump(_spectra, f)
                 f.flush()
 
+            # Initialize _spectra
             _spectra = []
+        # --------------------------------------------------------------------------------------------------------
 
-    _serialized_spectra_idx_start = int(max(int(last_index / 1000) * 1000, 0))
-    _serialized_spectra_idx_end = last_index
-    serialized_spectra_path = f'./serialized_spectra/' \
-                              f'{_serialized_spectra_idx_start}-{_serialized_spectra_idx_end}.pickle'
-    if serialized_spectra_path_to_rename:
-        os.rename(serialized_spectra_path_to_rename, serialized_spectra_path)
-    try:
-        with open(serialized_spectra_path, 'rb') as fr:
+        index += 1
+
+    _serialized_spectra_idx_start = int(max(int(index / length_to_export) * length_to_export, 0))
+    _serialized_spectra_idx_end = index
+    serialized_spectra_path = os.path.join(
+        serialized_spectra_dir, f'{_serialized_spectra_idx_start}-{_serialized_spectra_idx_end}.pickle')
+
+    # Get already serialized spectra
+    _spectra_old = []
+    if serialized_spectra_path_to_update:
+        with open(serialized_spectra_path_to_update, 'rb') as fr:
             _spectra_old = pickle.load(fr)
-    except (EOFError, FileNotFoundError):
-        _spectra_old = []
+
+        # Remove a file containing fewer than length_to_export spectra.
+        os.remove(serialized_spectra_path_to_update)
+
     with open(serialized_spectra_path, 'wb') as f:
-        pickle.dump(_spectra_old + _spectra, f)
+        _spectra = _spectra_old + _spectra
+        pickle.dump(_spectra, f)
         f.flush()
 
-    with h5py.File('spectrum_metadata.h5', 'a') as h5:
-        _arr = np.array(spectrum_metadata_list,
-                        dtype=[
-                            ('index', 'u8'), ('tag', H5PY_STR_TYPE),
-                            ('keyword', H5PY_STR_TYPE), ('cluster_id', H5PY_STR_TYPE),
-                            ('source_filename', H5PY_STR_TYPE),
-                            ('global_accession', H5PY_STR_TYPE), ('accession_number', H5PY_STR_TYPE),
-                            ('precursor_mz', 'f8'), ('rt_in_sec', 'f8'),
-                            ('retention_index', 'f8'), ('inchi', H5PY_STR_TYPE), ('inchikey', H5PY_STR_TYPE),
-                            ('author', H5PY_STR_TYPE), ('compound_name', H5PY_STR_TYPE), ('title', H5PY_STR_TYPE),
-                            ('instrument_type', H5PY_STR_TYPE), ('ionization_mode', H5PY_STR_TYPE),
-                            ('fragmentation_type', H5PY_STR_TYPE), ('precursor_type', H5PY_STR_TYPE),
-                            ('number_of_peaks', 'u8'), ('peaks', H5PY_STR_TYPE), ('mz_list', H5PY_STR_TYPE),
-                            ('external_compound_unique_id_list', H5PY_STR_TYPE),
-                            ('pathway_unique_id_list', H5PY_STR_TYPE),
-                            ('pathway_common_name_list', H5PY_STR_TYPE),
-                            ('cmpd_classification_superclass_list', H5PY_STR_TYPE),
-                            ('cmpd_classification_class_list', H5PY_STR_TYPE),
-                            ('cmpd_classification_subclass_list', H5PY_STR_TYPE),
-                            ('cmpd_classification_alternative_parent_list', H5PY_STR_TYPE)])
-
-        if 'metadata' not in set(h5.keys()):
-            h5.create_dataset(name='metadata', data=_arr, shape=(_arr.shape[0],), maxshape=(None,))
-        else:
-            dset = h5['metadata']
-            dset.resize((dset.len() + _arr.shape[0]), axis=0)
-            dset[-_arr.shape[0]:] = _arr
-
-        if dataset_tag != 'blank':
-            if 'metadata' not in set(h5['filtered'].keys()):
-                h5.create_dataset(name='filtered/metadata', data=_arr, shape=(_arr.shape[0],), maxshape=(None,))
-            else:
-                dset_filtered = h5['filtered/metadata']
-                dset_filtered.resize((dset_filtered.len() + _arr.shape[0]), axis=0)
-                dset_filtered[-_arr.shape[0]:] = _arr
-        h5.flush()
+    return global_index
 
 
 def serialize_filtered_spectra():
@@ -414,7 +465,7 @@ def iter_filtered_spectra(return_path=False, return_index=False):
             yield spectra
 
 
-def get_serialized_spectra_paths(dir_path):
+def get_serialized_spectra_paths(dir_path) -> list:
     """
     Parameters
     ----------

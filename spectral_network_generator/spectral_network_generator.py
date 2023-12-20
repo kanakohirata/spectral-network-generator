@@ -1,5 +1,6 @@
 __version__ = 'a6'
 import logging
+import pickle
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
@@ -7,13 +8,16 @@ from my_filter import extract_top_x_peak_rich, filter_reference_spectra, remove_
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
-from my_parser.matchms_spectrum_parser import (initialize_serialize_spectra_file,
+from my_parser.matchms_spectrum_parser import (get_serialized_spectra_paths,
+                                               initialize_serialize_spectra_file,
                                                load_and_serialize_spectra,
                                                serialize_filtered_spectra,
                                                serialize_grouped_spectra)
-from my_parser.score_parser import delete_score_files, initialize_score_hdf5
+from my_parser.score_parser import initialize_score_files, initialize_score_hdf5
 from my_parser.spectrum_metadata_parser import (group_by_dataset,
-                                                initialize_spectrum_metadata_hdf5)
+                                                initialize_spectrum_metadata_file,
+                                                initialize_spectrum_metadata_hdf5,
+                                                write_metadata)
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
 from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info
 from utils.clustering import create_cluster_frame
@@ -39,17 +43,12 @@ def generate_spectral_network(config_obj, _logger=None):
     
     logger.info('started')
 
-    if not os.path.isdir('./serialized_spectra'):
-        os.makedirs('./serialized_spectra')
-    if not os.path.isdir('./serialized_spectra/filtered'):
-        os.makedirs('./serialized_spectra/filtered')
-
     initialize_serialize_spectra_file()
-    initialize_spectrum_metadata_hdf5()
+    initialize_spectrum_metadata_file()
     read_meta.initialize_metacyc_hdf5('./metacyc.h5')
     read_meta.initialize_metacyc_hdf5('./metacyc_for_filter.h5')
     initialize_score_hdf5()
-    delete_score_files()
+    initialize_score_files()
 
     # make sure which type/version of spec obj you are using
     # input variable config_obj.id is used when multiple versions of config object is used for mainly cross validation
@@ -89,42 +88,127 @@ def generate_spectral_network(config_obj, _logger=None):
     if config_obj.flag_write_log:
         report.info('start reading data files ...\n')
 
-    for _path in config_obj.list_sample_file_path:
+    source_filename_list = []
+    source_filename_vs_tag_id = {}
+    source_filename_vs_serialized_spectra_dir = {}
+
+    spectrum_index = 0
+
+    # Read and serialize sample spectra. --------------------------------------------------------------
+    for _idx, _path in enumerate(config_obj.list_sample_file_path):
         _filename = os.path.basename(_path)
-        _is_introduce_random_mass_shift = False
+        source_filename_list.append(_filename)
+        source_filename_vs_tag_id[_filename] = f'sample_{_idx}'
+
+        # Directory to export serialized spectra
+        _serialized_spectra_dir = f'./serialized_spectra/raw/{source_filename_vs_tag_id[_filename]}'
+        source_filename_vs_serialized_spectra_dir[_filename] = _serialized_spectra_dir
+
+        # Whether to introduce mass shift
+        _is_random_mass_shift_enabled = False
         if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
-            _is_introduce_random_mass_shift = True
-        load_and_serialize_spectra(_path, 'sample', intensity_threshold=config_obj.remove_low_intensity_peaks,
-                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
-                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
-                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
-                                   matching_top_n_input=config_obj.matching_top_n_input)
-    for _path in config_obj.list_ref_file_path:
+            _is_random_mass_shift_enabled = True
+
+        spectrum_index = load_and_serialize_spectra(
+            _path, 'sample', _serialized_spectra_dir, spectrum_index,
+            intensity_threshold=config_obj.remove_low_intensity_peaks,
+            is_introduce_random_mass_shift=_is_random_mass_shift_enabled,
+            deisotope_int_ratio=config_obj.deisotope_int_ratio,
+            deisotope_mz_tol=config_obj.deisotope_mz_tol,
+            binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+            binning_range=config_obj.top_n_binned_ranges_bin_size,
+            matching_top_n_input=config_obj.matching_top_n_input)
+
+        spectrum_index += 1
+
+    # Read and serialize reference spectra. --------------------------------------------------------------
+    for _idx, _path in enumerate(config_obj.list_ref_file_path):
         _filename = os.path.basename(_path)
-        _is_introduce_random_mass_shift = False
+        source_filename_list.append(_filename)
+        source_filename_vs_tag_id[_filename] = f'ref_{_idx}'
+
+        # Directory to export serialized spectra
+        _serialized_spectra_dir = f'./serialized_spectra/raw/{source_filename_vs_tag_id[_filename]}'
+        source_filename_vs_serialized_spectra_dir[_filename] = _serialized_spectra_dir
+
+        # Whether to introduce mass shift
+        _is_random_mass_shift_enabled = False
         if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
-            _is_introduce_random_mass_shift = True
-        load_and_serialize_spectra(_path, 'ref', intensity_threshold=config_obj.remove_low_intensity_peaks,
-                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
-                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
-                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
-                                   matching_top_n_input=config_obj.matching_top_n_input)
-    for _path in config_obj.list_blank_file_path:
+            _is_random_mass_shift_enabled = True
+
+        spectrum_index = load_and_serialize_spectra(
+            _path, 'ref', _serialized_spectra_dir, spectrum_index,
+            intensity_threshold=config_obj.remove_low_intensity_peaks,
+            is_introduce_random_mass_shift=_is_random_mass_shift_enabled,
+            deisotope_int_ratio=config_obj.deisotope_int_ratio,
+            deisotope_mz_tol=config_obj.deisotope_mz_tol,
+            binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+            binning_range=config_obj.top_n_binned_ranges_bin_size,
+            matching_top_n_input=config_obj.matching_top_n_input)
+
+        spectrum_index += 1
+
+    # Read and serialize blank spectra. --------------------------------------------------------------
+    for _idx, _path in enumerate(config_obj.list_blank_file_path):
         _filename = os.path.basename(_path)
-        _is_introduce_random_mass_shift = False
+        source_filename_list.append(_filename)
+        source_filename_vs_tag_id[_filename] = f'blank_{_idx}'
+
+        # Directory to export serialized spectra
+        _serialized_spectra_dir = f'./serialized_spectra/raw/{source_filename_vs_tag_id[_filename]}'
+        source_filename_vs_serialized_spectra_dir[_filename] = _serialized_spectra_dir
+
+        # Whether to introduce mass shift
+        _is_random_mass_shift_enabled = False
         if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
-            _is_introduce_random_mass_shift = True
-        load_and_serialize_spectra(_path, 'blank', intensity_threshold=config_obj.remove_low_intensity_peaks,
-                                   is_introduce_random_mass_shift=_is_introduce_random_mass_shift,
-                                   deisotope_int_ratio=config_obj.deisotope_int_ratio,
-                                   deisotope_mz_tol=config_obj.deisotope_mz_tol,
-                                   binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-                                   binning_range=config_obj.top_n_binned_ranges_bin_size,
-                                   matching_top_n_input=config_obj.matching_top_n_input)
+            _is_random_mass_shift_enabled = True
+
+        spectrum_index = load_and_serialize_spectra(
+            _path, 'blank', _serialized_spectra_dir, spectrum_index,
+            intensity_threshold=config_obj.remove_low_intensity_peaks,
+            is_introduce_random_mass_shift=_is_random_mass_shift_enabled,
+            deisotope_int_ratio=config_obj.deisotope_int_ratio,
+            deisotope_mz_tol=config_obj.deisotope_mz_tol,
+            binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+            binning_range=config_obj.top_n_binned_ranges_bin_size,
+            matching_top_n_input=config_obj.matching_top_n_input)
+
+        spectrum_index += 1
+
+    logger.info(f'Number of all spectra: {spectrum_index}')
+
+    # Write metadata of sample spectra --------------------------------------------------------------
+    for _filename in config_obj.list_sample_filename:
+        _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+        _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
+
+        for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            with open(_serialized_spectra_path, 'rb') as f:
+                _spectra = pickle.load(f)
+
+            write_metadata('./spectrum_metadata/raw/sample_metadata.npy', _spectra, export_tsv=True)
+
+    # Write metadata of reference spectra --------------------------------------------------------------
+    for _filename in config_obj.list_ref_filename:
+        _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+        _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
+
+        for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            with open(_serialized_spectra_path, 'rb') as f:
+                _spectra = pickle.load(f)
+
+            write_metadata('./spectrum_metadata/raw/ref_metadata.npy', _spectra, export_tsv=True)
+
+    # Write metadata of blank spectra --------------------------------------------------------------
+    for _filename in config_obj.list_blank_filename:
+        _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+        _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
+
+        for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
+            with open(_serialized_spectra_path, 'rb') as f:
+                _spectra = pickle.load(f)
+
+            write_metadata('./spectrum_metadata/raw/blank_metadata.npy', _spectra, export_tsv=True)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank)
