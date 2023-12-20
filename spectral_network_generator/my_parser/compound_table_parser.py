@@ -3,8 +3,8 @@ import pandas as pd
 
 def create_compound_dict():
     return {'db_id': '', 'exact_mass': 0, 'inchi': '', 'inchikey': '', 'list_cas_rn': [],
-            'list_cmpd_classification_superclass': [], 'list_cmpd_classification_class': [],
-            'list_cmpd_classification_subclass': [], 'list_cmpd_classification_alternative_parent': [],
+            'cmpd_classification_superclass': '', 'cmpd_classification_class': '',
+            'cmpd_classification_subclass': '', 'list_cmpd_classification_alternative_parent': [],
             'list_hmdb_id': [], 'molecular_formula': '', 'name': '', 'smiles': '', }
 
 
@@ -112,9 +112,7 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'inchikey'
             columns_to_use.append('inchikey')
-        elif column_name in ['molecular formula', 'molecular_formula', 'MOLECULAR FORMULA', 'MOLECULAR_FORMULA', 'formula',
-                             'FORMULA', 'elemental composition', 'elemental composition', 'ELEMENTAL COMPOSITION',
-                             'ELEMENTAL_COMPOSITION']:
+        elif column_name in ['molecular_formula', 'formula', 'elemental_composition']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
             columns_to_rename[column_name] = 'formula'
@@ -133,18 +131,18 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
         elif column_name in ['classyfire_superclass', 'superclass']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
-            columns_to_rename[column_name] = 'list_cmpd_classification_superclass'
-            columns_to_use.append('list_cmpd_classification_superclass')
+            columns_to_rename[column_name] = 'cmpd_classification_superclass'
+            columns_to_use.append('cmpd_classification_superclass')
         elif column_name in ['classyfire_class', 'class']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
-            columns_to_rename[column_name] = 'list_cmpd_classification_class'
-            columns_to_use.append('list_cmpd_classification_class')
+            columns_to_rename[column_name] = 'cmpd_classification_class'
+            columns_to_use.append('cmpd_classification_class')
         elif column_name in ['classyfire_subclass', 'subclass']:
             df[column_name].astype(str)
             df[column_name].fillna('', inplace=True)
-            columns_to_rename[column_name] = 'list_cmpd_classification_subclass'
-            columns_to_use.append('list_cmpd_classification_subclass')
+            columns_to_rename[column_name] = 'cmpd_classification_subclass'
+            columns_to_use.append('cmpd_classification_subclass')
 
     if 'inchikey' not in columns_to_use:
         raise ValueError(f'Column name is not correct: {path}\n'
@@ -157,15 +155,6 @@ def read_compound_table(path, mode='dict', delimiter='\t'):
         df['list_hmdb_id'] = df['list_hmdb_id'].str.split(',').apply(lambda x: [item.strip() for item in x if item.strip()])
     if 'list_cas_rn' in columns_to_use:
         df['list_cas_rn'] = df['list_cas_rn'].str.split(',').apply(lambda x: [item.strip() for item in x if item.strip()])
-    if 'list_cmpd_classification_superclass' in columns_to_use:
-        df['list_cmpd_classification_superclass']\
-            = df['list_cmpd_classification_superclass'].apply(lambda x: [x] if x else [])
-    if 'list_cmpd_classification_class' in columns_to_use:
-        df['list_cmpd_classification_class']\
-            = df['list_cmpd_classification_class'].apply(lambda x: [x] if x else [])
-    if 'list_cmpd_classification_subclass' in columns_to_use:
-        df['list_cmpd_classification_subclass']\
-            = df['list_cmpd_classification_subclass'].apply(lambda x: [x] if x else [])
 
     df.drop_duplicates(subset='inchikey', inplace=True)
 

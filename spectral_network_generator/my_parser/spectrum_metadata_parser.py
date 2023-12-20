@@ -46,9 +46,9 @@ def get_metadata_dtype():
         ('external_compound_unique_id_list', 'O'),  # list
         ('pathway_unique_id_list', 'O'),  # list
         ('pathway_common_name_list', 'O'),  # list
-        ('cmpd_classification_superclass_list', 'O'),  # list
-        ('cmpd_classification_class_list', 'O'),  # list
-        ('cmpd_classification_subclass_list', 'O'),  # list
+        ('cmpd_classification_superclass', 'O'),  # str
+        ('cmpd_classification_class', 'O'),  # str
+        ('cmpd_classification_subclass', 'O'),  # str
         ('cmpd_classification_alternative_parent_list', 'O')  # list
     ]
 
@@ -138,19 +138,19 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                 metadata.append(spectrum.mz)
 
             elif dtype[0] in ('external_compound_unique_id_list', 'pathway_unique_id_list', 'pathway_common_name_list'):
-                metadata.append('')
+                metadata.append([])
 
-            elif dtype[0] == 'cmpd_classification_superclass_list':
+            elif dtype[0] == 'cmpd_classification_superclass':
                 metadata.append(spectrum.get('classification_superclass', ''))
 
-            elif dtype[0] == 'cmpd_classification_class_list':
+            elif dtype[0] == 'cmpd_classification_class':
                 metadata.append(spectrum.get('classification_class', ''))
 
-            elif dtype[0] == 'cmpd_classification_subclass_list':
+            elif dtype[0] == 'cmpd_classification_subclass':
                 metadata.append(spectrum.get('classification_subclass', ''))
 
             elif dtype[0] == 'cmpd_classification_alternative_parent_list':
-                metadata.append(spectrum.get('classification_alternative_parent', ''))
+                metadata.append([])
 
         metadata_list.append(tuple(metadata))
 

@@ -19,7 +19,7 @@ from my_parser.spectrum_metadata_parser import (group_by_dataset,
                                                 initialize_spectrum_metadata_hdf5,
                                                 write_metadata)
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
-from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info
+from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info, check_filtered_metadata
 from utils.clustering import create_cluster_frame
 
 
@@ -181,36 +181,36 @@ def generate_spectral_network(config_obj, _logger=None):
     for _filename in config_obj.list_sample_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-    
+
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
             logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-    
+
             write_metadata('./spectrum_metadata/raw/sample_metadata.npy', _spectra, export_tsv=True)
-    
+
     # Write metadata of reference spectra --------------------------------------------------------------
     for _filename in config_obj.list_ref_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-    
+
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
             logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-    
+
             write_metadata('./spectrum_metadata/raw/ref_metadata.npy', _spectra, export_tsv=True)
-    
+
     # Write metadata of blank spectra --------------------------------------------------------------
     for _filename in config_obj.list_blank_filename:
         _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         _serialized_spectra_paths = get_serialized_spectra_paths(_serialized_spectra_dir)
-    
+
         for _serialized_spectra_path, _, _ in _serialized_spectra_paths:
             logger.info(f'Write metadata of spectra in {os.path.basename(_serialized_spectra_path)}')
             with open(_serialized_spectra_path, 'rb') as f:
                 _spectra = pickle.load(f)
-    
+
             write_metadata('./spectrum_metadata/raw/blank_metadata.npy', _spectra, export_tsv=True)
 
     # Remove common contaminants in sample data by subtracting blank elements ---------------
@@ -220,11 +220,17 @@ def generate_spectral_network(config_obj, _logger=None):
         mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank,
         export_tsv=True)
 
+    # Check whether there are remaining spectra after filtering.
+    if not check_filtered_metadata('./spectrum_metadata/filtered/sample_metadata.npy'):
+        raise ValueError('There is no spectrum after filtering.')
+
     # ------------------------------------------------
     # Add external compound data to reference spectra
     # ------------------------------------------------
     if config_obj.compound_table_paths:
-        add_compound_info(config_obj.compound_table_paths)
+        add_compound_info(config_obj.compound_table_paths,
+                          ['./spectrum_metadata/filtered/sample_metadata.npy',
+                           './spectrum_metadata/raw/ref_metadata.npy'])
 
     if config_obj.metacyc_cmpd_dat_path:
         read_meta.convert_metacyc_compounds_dat_to_h5(config_obj.metacyc_cmpd_dat_path, output_path='./metacyc.h5',
