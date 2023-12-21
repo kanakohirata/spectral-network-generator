@@ -49,8 +49,10 @@ class SpecNetGenConfig:
         self.list_author = ''
         self.list_name_key_characters_to_remove = []
         self.instrument_type = ''
+        self.ion_mode = ''
         self.list_precursor_type = []
         self.fragmentation_type = ''
+        self.ionization = ''
         self.min_number_of_peaks = 1
         self.list_path_compound_dat_for_filter = []
         self.remove_spec_wo_prec_mz = 0
@@ -204,6 +206,7 @@ def read_config_file(path='./config.ini', _logger=None):
                                                     if _character.strip()]
 
     my_config.instrument_type = inifile.get('filter', 'instrument_type')
+    my_config.ion_mode = inifile.get('filter', 'ion_mode').lower()
     my_config.ionization = inifile.get('filter', 'ionization')
 
     _list_precursor_type = inifile.get('filter', 'precursor_type').split(',')
@@ -341,7 +344,6 @@ def read_config_file(path='./config.ini', _logger=None):
         my_config.metacyc_pathway_dat_path = ''
 
     my_config.external_file_filter_mode = int(inifile.get('external info files', 'mode'))
-
 
     config_filename = os.path.basename(path)
     shutil.copyfile(path, os.path.join(my_config.output_folder_path, config_filename))

@@ -39,6 +39,7 @@ def get_metadata_dtype():
         ('instrument_type', 'O'),  # str
         ('ionization_mode', 'O'),  # str
         ('fragmentation_type', 'O'),  # str
+        ('ion_mode', 'O'),  # str
         ('precursor_type', 'O'),  # str
         ('number_of_peaks', 'u8'),
         ('peaks', 'O'),  # list
@@ -118,15 +119,26 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                 metadata.append(spectrum.get(dtype[0]) or 0)
 
             elif dtype[0] == 'ionization_mode':
-                metadata.append(spectrum.get('ionization_mode')
-                                or spectrum.get('ionization')
-                                or spectrum.get('ion_mode')
-                                or spectrum.get('ionmode', ''))
+                ionization_mode = spectrum.get('ionization_mode') or spectrum.get('ionization', '')
+                if not ionization_mode:
+                    instrument_type = spectrum.get('instrument_type', '')
+                    if 'LC-ESI' in instrument_type or 'DI-ESI' in instrument_type:
+                        ionization_mode = 'ESI'
+                metadata.append(ionization_mode)
 
             elif dtype[0] == 'fragmentation_type':
                 metadata.append(spectrum.get('fragmentation_type')
                                 or spectrum.get('fragmentation_mode')
                                 or spectrum.get('fragmentation', ''))
+
+            elif dtype[0] == 'ion_mode':
+                ion_mode = spectrum.get('ion_mode') or spectrum.get('ionmode', '')
+                ion_mode = ion_mode.lower()
+                if ion_mode in ('p', 'pos'):
+                    ion_mode = 'positive'
+                elif ion_mode in ('n', 'neg'):
+                    ion_mode = 'negative'
+                metadata.append(ion_mode)
 
             elif dtype[0] == 'number_of_peaks':
                 metadata.append(spectrum.mz.size)
