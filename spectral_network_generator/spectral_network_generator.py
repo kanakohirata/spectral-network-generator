@@ -4,7 +4,7 @@ import pickle
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-from grouping import grouping_metadata
+from grouping import grouping_metadata, group_spectra
 from my_filter import extract_top_x_peak_rich, filter_reference_spectra, remove_blank_spectra_from_sample_spectra
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
@@ -288,6 +288,9 @@ def generate_spectral_network(config_obj, _logger=None):
                                     num_top_x_peak_rich=config_obj.num_top_x_peak_rich,
                                     export_tsv=True)
 
+    # --------------------------------------
+    # Group metadata and spectra by dataset
+    # --------------------------------------
     grouping_metadata.group_sample_by_dataset(sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
                                               output_dir='./spectrum_metadata/grouped/sample',
                                               split_category='tag',
@@ -297,12 +300,25 @@ def generate_spectral_network(config_obj, _logger=None):
                                                  output_dir='./spectrum_metadata/grouped/ref',
                                                  split_category=config_obj.ref_split_category,
                                                  export_tsv=True)
-    
-    serialize_filtered_spectra()
 
-    # --------------------------------------
-    # Group metadata and spectra by dataset
-    # --------------------------------------
+    # group and serialize sample spectra. -----------------------------------------
+    for _filename in config_obj.list_sample_filename:
+        _spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+        group_spectra(spectra_dir=_spectra_dir,
+                      metadata_dir='./spectrum_metadata/grouped/sample',
+                      output_parent_dir='./serialized_spectra/grouped/sample',
+                      folder_name_prefix='sample_dataset_')
+    # -----------------------------------------------------------------------------
+
+    # group and serialize reference spectra. --------------------------------------
+    for _filename in config_obj.list_ref_filename:
+        _spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+        group_spectra(spectra_dir=_spectra_dir,
+                      metadata_dir='./spectrum_metadata/grouped/ref',
+                      output_parent_dir='./serialized_spectra/grouped/ref',
+                      folder_name_prefix='ref_dataset_')
+    # -----------------------------------------------------------------------------
+
     add_dataset_keyword(config_obj.ref_split_category)
     group_by_dataset()
     serialize_grouped_spectra()

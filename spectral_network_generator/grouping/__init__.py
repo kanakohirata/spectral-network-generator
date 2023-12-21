@@ -1,5 +1,6 @@
 import os
 from . import grouping_metadata
+from .grouping_spectra import group_spectra
 
 
 if os.path.isfile(grouping_metadata.SAMPLE_DATASET_KEYWORDS_PATH):

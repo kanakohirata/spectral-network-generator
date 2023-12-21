@@ -1,10 +1,9 @@
-import re
-
 import h5py
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 import os
 import pandas as pd
+import re
 import shutil
 
 
@@ -286,3 +285,33 @@ def group_by_dataset(ref_split_category, path='./spectrum_metadata.h5', key='fil
             dataset_arr = dset[()][dataset_mask]
             dataset_arr['keyword'] = dataset_keyword
             h5.create_dataset(f'grouped/{dataset_keyword.decode("utf-8")}', data=dataset_arr, shape=dataset_arr.shape, maxshape=(None,))
+
+
+def get_npy_metadata_paths(dir_path) -> list:
+    """
+    Parameters
+    ----------
+    dir_path : str
+
+    Returns
+    -------
+    list
+        If dir_path includes 'ref_dataset_0.npy', 'ref_dataset_1.npy', 'ref_dataset_2.npy',
+        the following list will be returned.
+
+        list[('dir_path/ref_dataset_0.npy', 0),
+             ('dir_path/ref_dataset_1.npy', 1),
+             ('dir_path/ref_dataset_2.npy', 2)]
+    """
+    path_vs_index_list = []
+
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and filename.endswith('.npy'):
+            matchms = re.findall(r'\d+', filename)
+            index = int(matchms[-1])
+            path_vs_index_list.append((path, index))
+
+    path_vs_index_list.sort(key=lambda x: x[1])
+
+    return path_vs_index_list
