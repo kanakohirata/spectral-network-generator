@@ -55,8 +55,8 @@ def _parse_spectrum(spectrum):
     if isinstance(spectrum, list):
         return spectrum
 
-    elif isinstance(spectrum, str):
-        peaks = []
+    peaks = []
+    if isinstance(spectrum, str):
         if re.search(r'(\d+\.?\d+:\d+\.?\d+)', spectrum):
             str_peaks = re.findall(r'(\d+\.?\d+:\d+\.?\d+)', spectrum)
             
@@ -77,8 +77,7 @@ def _parse_spectrum(spectrum):
     return peaks
 
 
-
-def _parse_compound(compound:dict):
+def _parse_compound(compound: dict):
     name = ''
     for n in compound['names']:
         if n['name']:
@@ -118,7 +117,10 @@ def _parse_compound(compound:dict):
         if level not in parsed:
             parsed[level] = c['value']
         else:
-            parsed[level] += f'|{c["value"]}'
+            if isinstance(parsed[level], str):
+                parsed[level] = [parsed[level], c['value']]
+            else:
+                parsed[level].append(c['value'])
 
     return parsed
     
@@ -181,9 +183,9 @@ def convert_json_to_matchms_spectra(path, parameters_for_open=None):
         
         matchms_spectra.append(
             Spectrum(mz=mz_values,
-                    intensities=intensities,
-                    metadata=metadata,
-                    metadata_harmonization=True)
+                     intensities=intensities,
+                     metadata=metadata,
+                     metadata_harmonization=True)
         )
 
     return matchms_spectra

@@ -4,7 +4,7 @@ import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 from matchms import Spectrum
-from matchms.filtering import (add_retention_time, add_retention_index, derive_inchi_from_smiles,
+from matchms.filtering import (add_retention_index, derive_inchi_from_smiles,
                                derive_inchikey_from_inchi, normalize_intensities, select_by_relative_intensity)
 from matchms.importing import load_from_json, load_from_mgf, load_from_msp
 import os
@@ -65,7 +65,7 @@ def _convert_str_to_float(string):
 
 def set_retention_time_in_sec(spectrum: Spectrum, convert_min_to_sec: bool):
     """
-
+    Set 'retention_time' and 'rt_in_sec' information.
     Parameters
     ----------
     spectrum : matchms.Spectrum
@@ -74,8 +74,6 @@ def set_retention_time_in_sec(spectrum: Spectrum, convert_min_to_sec: bool):
 
     Returns
     -------
-    matchms.Spectrum
-        Spectrum with 'retention_time' and 'rt_in_sec' information.
     """
     retention_time_keys = ['retention_time', 'retentiontime', 'rt', 'scan_start_time', 'rt_query']
     rt = 0.0
@@ -96,7 +94,38 @@ def set_retention_time_in_sec(spectrum: Spectrum, convert_min_to_sec: bool):
 
     spectrum.set('retention_time', rt)
     spectrum.set('rt_in_sec', rt)
-    return spectrum
+
+
+def repair_ion_mode(spectrum: Spectrum):
+    """
+    Correct ion mode. If it is 'pos' or 'p', it is changed to 'positive'. ('neg' and 'n' -> 'negative')
+    If 'ionization_mode' has ion mode information, set the value to 'ionmode'.
+    Parameters
+    ----------
+    spectrum : matchms.Spectrum
+
+    Returns
+    -------
+
+    """
+    ionization_mode = spectrum.get('ionization_mode') or spectrum.get('ionizationmode', '')
+    ionization_mode = ionization_mode.lower()
+    if ionization_mode in ('positive', 'pos', 'p', 'negative', 'neg', 'n'):
+        spectrum.set('ionmode', ionization_mode)
+        spectrum.set('ionization_mode', '')
+        spectrum.set('ionizationmode', '')
+
+    ionization = spectrum.get('ionization', '')
+    ionization = ionization.lower()
+    if ionization in ('positive', 'pos', 'p', 'negative', 'neg', 'n'):
+        spectrum.set('ionmode', ionization)
+        spectrum.set('ionization', '')
+
+    ion_mode = spectrum.get('ion_mode') or spectrum.get('ionmode', '')
+    if ion_mode in ('pos', 'p'):
+        spectrum.set('ionmode', 'positive')
+    elif ion_mode in ('neg', 'n'):
+        spectrum.set('ionmode', 'negative')
 
 
 def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir, global_index_start,
@@ -217,7 +246,7 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir
             _s = set_top_n_most_intense_peaks(_s, matching_top_n_input)
 
         # Set retention time in sec to 'retention_time' and 'rt_in_sec' of metadata.
-        _s = set_retention_time_in_sec(_s, is_rt_in_min)
+        set_retention_time_in_sec(_s, is_rt_in_min)
         _s = add_retention_index(_s)
 
         # Add smiles and inchi
@@ -228,6 +257,9 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir
 
         _s = derive_inchi_from_smiles(_s)
         _s = derive_inchikey_from_inchi(_s)
+
+        # Correct ion mode
+        repair_ion_mode(_s)
 
         # Add accession number and global accession.
         if _s.get('accession_number'):

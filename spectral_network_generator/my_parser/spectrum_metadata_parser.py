@@ -108,8 +108,7 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
         metadata = []
         for dtype in dtypes:
             if dtype[0] in ('index', 'tag', 'source_filename', 'global_accession', 'accession_number',
-                            'inchi', 'inchikey', 'author', 'compound_name',
-                            'title', 'instrument_type', 'precursor_type',):
+                            'inchi', 'inchikey', 'author', 'compound_name', 'title', 'instrument_type'):
                 metadata.append(spectrum.get(dtype[0], ''))
 
             elif dtype[0] in ('keyword', 'cluster_id', 'cluster_name'):
@@ -119,7 +118,10 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                 metadata.append(spectrum.get(dtype[0]) or 0)
 
             elif dtype[0] == 'ionization_mode':
-                ionization_mode = spectrum.get('ionization_mode') or spectrum.get('ionization', '')
+                ionization_mode = spectrum.get('ionization_mode')\
+                                  or spectrum.get('ionizationmode')\
+                                  or spectrum.get('ionization', '')
+
                 if not ionization_mode:
                     instrument_type = spectrum.get('instrument_type', '')
                     if 'LC-ESI' in instrument_type or 'DI-ESI' in instrument_type:
@@ -132,13 +134,12 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                                 or spectrum.get('fragmentation', ''))
 
             elif dtype[0] == 'ion_mode':
-                ion_mode = spectrum.get('ion_mode') or spectrum.get('ionmode', '')
-                ion_mode = ion_mode.lower()
-                if ion_mode in ('p', 'pos'):
-                    ion_mode = 'positive'
-                elif ion_mode in ('n', 'neg'):
-                    ion_mode = 'negative'
-                metadata.append(ion_mode)
+                metadata.append(spectrum.get('ionmode', ''))
+
+            elif dtype[0] == 'precursor_type':
+                metadata.append(spectrum.get('precursor_type')
+                                or spectrum.get('precursortype')
+                                or spectrum.get('adduct', ''))
 
             elif dtype[0] == 'number_of_peaks':
                 metadata.append(spectrum.mz.size)
@@ -162,7 +163,7 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                 metadata.append(spectrum.get('classification_subclass', ''))
 
             elif dtype[0] == 'cmpd_classification_alternative_parent_list':
-                metadata.append([])
+                metadata.append(spectrum.get('classification_alternative_parent') or [])
 
         metadata_list.append(tuple(metadata))
 
