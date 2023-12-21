@@ -199,6 +199,7 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
 
     with open(metadata_path, 'wb') as f:
         np.save(f, metadata_arr)
+        f.flush()
 
     if export_tsv:
         tsv_path = os.path.splitext(metadata_path)[0] + '.tsv'

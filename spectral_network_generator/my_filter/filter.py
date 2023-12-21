@@ -99,6 +99,12 @@ def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadat
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
+    # If sample_metadata_path == output_path,
+    # sample_metadata_path will be updated after outputting to the temp_output_path file.
+    temp_output_path = os.path.splitext(output_path)[0] + '__temp.npy'
+
+    arr_to_retain = None
+
     # Iterate sample metadata array per 10000 rows.
     for arr, chunk_start, chunk_end in split_array(sample_arr_all, 10000):
         # Extract sample array where 'precursor_mz' and 'rt_in_sec' are not 0.
@@ -127,16 +133,26 @@ def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadat
             arr_to_retain = arr[np.isin(arr['index'], idx_arr)]
 
             # Append arr_to_retain to an already existing array.
-            if os.path.isfile(output_path):
-                existing_arr = np.load(output_path, allow_pickle=True)
+            if os.path.isfile(temp_output_path):
+                existing_arr = np.load(temp_output_path, allow_pickle=True)
                 arr_to_retain = np.hstack((existing_arr, arr_to_retain))
 
-            np.save(output_path, arr_to_retain)
+            with open(temp_output_path, 'wb') as f:
+                np.save(f, arr_to_retain)
+                f.flush()
+
+    if arr_to_retain is not None:
+        with open(output_path, 'wb') as f:
+            np.save(f, arr_to_retain)
+            f.flush()
             
-            if export_tsv:
-                tsv_path = os.path.splitext(output_path)[0] + '.tsv'
-                df = pd.DataFrame.from_records(arr_to_retain)
-                df.to_csv(tsv_path, sep='\t', index=False)
+        if export_tsv:
+            tsv_path = os.path.splitext(output_path)[0] + '.tsv'
+            df = pd.DataFrame.from_records(arr_to_retain)
+            df.to_csv(tsv_path, sep='\t', index=False)
+
+        # Remove temp_output_path file
+        os.remove(temp_output_path)
 
 
 def filter_reference_spectra_old(config_obj, _logger=None):

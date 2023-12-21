@@ -292,7 +292,9 @@ def convert_metacyc_compounds_dat_to_npy(path, output_path, parameters_to_open_f
         existing_arr = np.load(output_path, allow_pickle=True)
         arr = np.hstack((existing_arr, arr))
 
-    np.save(output_path, arr)
+    with open(output_path, 'wb') as f:
+        np.save(f, arr)
+        f.flush()
 
 
 def read_metacyc_compounds_dat(filepath, output_path, parameters_to_open_file=None):
@@ -576,7 +578,9 @@ def convert_metacyc_pathways_dat_to_npy(path, output_path, parameters_to_open_fi
         existing_arr = np.load(output_path, allow_pickle=True)
         arr = np.hstack((existing_arr, arr))
 
-    np.save(output_path, arr)
+    with open(output_path, 'wb') as f:
+        np.save(f, arr)
+        f.flush()
 
 
 def read_metacyc_pathways_dat(path, output_path, parameters_to_open_file=None):
@@ -796,7 +800,9 @@ def assign_pathway_id_to_compound_in_npy(compound_path, pathway_path):
     arr_compound['pathway_common_name_list'] = pathway_common_name_data
 
     # Update array file.
-    np.save(compound_path, arr_compound)
+    with open(compound_path, 'wb') as f:
+        np.save(f, arr_compound)
+        f.flush()
 
 
 def read_plantcyc_compounds(path, parameters_to_open_file=None):

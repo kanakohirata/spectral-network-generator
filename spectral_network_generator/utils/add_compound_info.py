@@ -244,4 +244,6 @@ def add_compound_info(compound_table_paths, metadata_paths):
 
         new_arr = np.array(df_metadata.to_records(index=False), dtype=arr.dtype)
 
-        np.save(metadata_path, new_arr)
+        with open(metadata_path, 'wb') as f:
+            np.save(f, new_arr)
+            f.flush()

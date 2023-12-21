@@ -124,7 +124,9 @@ def add_metacyc_compound_info(metacyc_compound_path, metadata_path, export_tsv=F
         dtype=arr_metadata.dtype
     )
 
-    np.save(metadata_path, new_arr)
+    with open(metadata_path, 'wb') as f:
+        np.save(f, new_arr)
+        f.flush()
 
     if export_tsv:
         tsv_path = os.path.splitext(metadata_path)[0] + '.tsv'
