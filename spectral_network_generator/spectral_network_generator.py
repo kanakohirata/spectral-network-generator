@@ -272,12 +272,20 @@ def generate_spectral_network(config_obj, _logger=None):
                              export_tsv=True,
                              _logger=report)
 
+    # Check whether there are remaining spectra after filtering.
+    if not check_filtered_metadata('./spectrum_metadata/filtered/ref_metadata.npy'):
+        raise ValueError('There is no reference spectrum after filtering.')
+
     # ------------------------------------
     # Extract top X peak rich spectra
     # ------------------------------------
     if config_obj.num_top_x_peak_rich:
         for _filename in config_obj.list_sample_filename:
-            extract_top_x_peak_rich(_filename, config_obj.num_top_x_peak_rich)
+            extract_top_x_peak_rich(metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                    output_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                    filename=_filename,
+                                    num_top_x_peak_rich=config_obj.num_top_x_peak_rich,
+                                    export_tsv=True)
     
     serialize_filtered_spectra()
 

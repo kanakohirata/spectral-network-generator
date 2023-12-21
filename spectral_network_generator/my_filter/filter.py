@@ -501,7 +501,7 @@ def filter_reference_spectra(config_obj, ref_metadata_path, output_path, metacyc
 
     arr_all = np.load(ref_metadata_path, allow_pickle=True)
     arr_to_retain = None
-    for arr, chunk_start, chunk_end in split_array(arr_all, 1000):  # TODO row_size = 10000
+    for arr, chunk_start, chunk_end in split_array(arr_all, 10000):
         _mask_all_true = np.array([True] * arr.shape[0])
         mask_avoid_filter = np.invert(_mask_all_true)
 
@@ -672,7 +672,7 @@ def filter_reference_spectra(config_obj, ref_metadata_path, output_path, metacyc
         os.remove(temp_output_path)
 
 
-def extract_top_x_peak_rich(filename, num_top_x_peak_rich, _logger=None):
+def extract_top_x_peak_rich_old(filename, num_top_x_peak_rich, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -707,3 +707,49 @@ def extract_top_x_peak_rich(filename, num_top_x_peak_rich, _logger=None):
 
         h5.create_dataset('filtered/metadata', data=arr_to_retain, shape=arr_to_retain.shape, maxshape=(None,))
         h5.flush()
+
+
+def extract_top_x_peak_rich(metadata_path, output_path, filename, num_top_x_peak_rich, export_tsv=False, _logger=None):
+    if isinstance(_logger, logging.Logger):
+        logger = _logger
+    else:
+        logger = LOGGER
+
+    if num_top_x_peak_rich <= 0:
+        return
+
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    logger.info(f'Extract top {num_top_x_peak_rich} peak rich spectra of {filename}')
+
+    arr = np.load(metadata_path, allow_pickle=True)
+
+    idx_arr = arr['index']
+    filename_arr = arr['source_filename']
+
+    target_arr = arr[filename_arr == filename]
+    if target_arr.shape[0] <= num_top_x_peak_rich:
+        return
+    target_arr = target_arr[['index', 'number_of_peaks']]
+    target_idx_arr = target_arr['index']
+    idx_arr_to_retain = np.setdiff1d(idx_arr, target_idx_arr)
+
+    sorted_indices_desc = np.argsort(target_arr['number_of_peaks'])[::-1]
+    target_arr = target_arr[sorted_indices_desc][:num_top_x_peak_rich]
+
+    idx_arr_to_retain = np.append(idx_arr_to_retain, target_arr['index'])
+    idx_arr_to_retain.sort()
+    arr_to_retain = arr[np.isin(idx_arr, idx_arr_to_retain)]
+
+    with open(output_path, 'wb') as f:
+        np.save(f, arr_to_retain)
+        f.flush()
+
+    if export_tsv:
+        tsv_path = os.path.splitext(output_path)[0] + '.tsv'
+        df = pd.DataFrame.from_records(arr_to_retain)
+        df.to_csv(tsv_path, sep='\t', index=False)
+
