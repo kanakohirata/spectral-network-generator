@@ -49,7 +49,7 @@ def generate_spectral_network(config_obj, _logger=None):
     # Remove metacyc files -----------------------------------------
     metacyc_files = {'compound': './metacyc_compound.npy',
                      'pathway': './metacyc_pathway.npy',
-                     'filter': './metacyc_pathway_for_filter.npy'}
+                     'filter': './metacyc_compound_for_filter.npy'}
     for _p in metacyc_files.values():
         if os.path.isfile(_p):
             os.remove(_p)
@@ -265,7 +265,12 @@ def generate_spectral_network(config_obj, _logger=None):
                                                        parameters_to_open_file=dict(encoding='utf8', errors='replace'))
 
     report.info(f"\nfiles NOT to be filtered {str(config_obj.list_filename_avoid_filter)}\n")
-    filter_reference_spectra(config_obj, report)
+    filter_reference_spectra(config_obj,
+                             ref_metadata_path='./spectrum_metadata/raw/ref_metadata.npy',
+                             output_path='./spectrum_metadata/filtered/ref_metadata.npy',
+                             metacyc_compound_path=metacyc_files['filter'],
+                             export_tsv=True,
+                             _logger=report)
 
     # ------------------------------------
     # Extract top X peak rich spectra

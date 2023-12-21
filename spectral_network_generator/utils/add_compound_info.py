@@ -155,15 +155,15 @@ def add_compound_info(compound_table_paths, metadata_paths):
         df_compound.rename(columns={'name': 'compound_name_y'}, inplace=True)
     # cmpd_classification_superclass -> cmpd_classification_superclass_y
     if 'cmpd_classification_superclass' in df_compound.columns:
-        df_compound['cmpd_classification_superclass'].fillna('', inplace=True)
+        df_compound['cmpd_classification_superclass'].fillna('noclassification', inplace=True)
         df_compound.rename(columns={'cmpd_classification_superclass': 'cmpd_classification_superclass_y'}, inplace=True)
     # cmpd_classification_class -> cmpd_classification_class_y
     if 'cmpd_classification_class' in df_compound.columns:
-        df_compound['cmpd_classification_class'].fillna('', inplace=True)
+        df_compound['cmpd_classification_class'].fillna('noclassification', inplace=True)
         df_compound.rename(columns={'cmpd_classification_class': 'cmpd_classification_class_y'}, inplace=True)
     # cmpd_classification_subclass -> cmpd_classification_subclass_y
     if 'cmpd_classification_subclass' in df_compound.columns:
-        df_compound['cmpd_classification_subclass'].fillna('', inplace=True)
+        df_compound['cmpd_classification_subclass'].fillna('noclassification', inplace=True)
         df_compound.rename(columns={'cmpd_classification_subclass': 'cmpd_classification_subclass_y'}, inplace=True)
 
     for metadata_path in metadata_paths:
@@ -178,20 +178,26 @@ def add_compound_info(compound_table_paths, metadata_paths):
         if 'inchi_y' in df_compound.columns:
             df_metadata = pd.merge(df_metadata, df_compound[['inchikey', 'inchi_y']],
                                    on='inchikey', how='left')
+            # Fill nan
+            df_metadata[['inchi', 'inchi_y']] = df_metadata[['inchi', 'inchi_y']].fillna('')
             df_metadata.loc[df_metadata['inchi'] == '', 'inchi'] = df_metadata['inchi_y']
 
         if 'compound_name_y' in df_compound.columns:
             df_metadata = pd.merge(df_metadata, df_compound[['inchikey', 'compound_name_y']],
                                    on='inchikey', how='left')
+            # Fill nan
+            df_metadata[['compound_name', 'compound_name_y']] = df_metadata[['compound_name', 'compound_name_y']].fillna('')
             df_metadata.loc[df_metadata['compound_name'] == '', 'compound_name'] = df_metadata['compound_name_y']
 
         # Add superclass
         if 'cmpd_classification_superclass_y' in df_compound.columns:
             df_metadata = pd.merge(df_metadata, df_compound[['inchikey', 'cmpd_classification_superclass_y']],
                                    on='inchikey', how='left')
+            # Fill nan
+            df_metadata['cmpd_classification_superclass_y'].fillna('noclassification', inplace=True)
 
-            df_metadata.loc[df_metadata['cmpd_classification_superclass'] == '', 'cmpd_classification_superclass'] = \
-                df_metadata['cmpd_classification_superclass_y']
+            df_metadata.loc[df_metadata['cmpd_classification_superclass'] == 'noclassification',
+                            'cmpd_classification_superclass'] = df_metadata['cmpd_classification_superclass_y']
         else:
             pass
 
@@ -199,9 +205,10 @@ def add_compound_info(compound_table_paths, metadata_paths):
         if 'cmpd_classification_class_y' in df_compound.columns:
             df_metadata = pd.merge(df_metadata, df_compound[['inchikey', 'cmpd_classification_class_y']],
                                    on='inchikey', how='left')
+            df_metadata['cmpd_classification_class_y'].fillna('noclassification', inplace=True)
 
-            df_metadata.loc[df_metadata['cmpd_classification_class'] == '', 'cmpd_classification_class'] = \
-                df_metadata['cmpd_classification_class_y']
+            df_metadata.loc[df_metadata['cmpd_classification_class'] == 'noclassification',
+                            'cmpd_classification_class'] = df_metadata['cmpd_classification_class_y']
         else:
             pass
 
@@ -209,9 +216,10 @@ def add_compound_info(compound_table_paths, metadata_paths):
         if 'cmpd_classification_subclass_y' in df_compound.columns:
             df_metadata = pd.merge(df_metadata, df_compound[['inchikey', 'cmpd_classification_subclass_y']],
                                    on='inchikey', how='left')
+            df_metadata['cmpd_classification_subclass_y'].fillna('noclassification', inplace=True)
 
-            df_metadata.loc[df_metadata['cmpd_classification_subclass'] == '', 'cmpd_classification_subclass'] = \
-                df_metadata['cmpd_classification_subclass_y']
+            df_metadata.loc[df_metadata['cmpd_classification_subclass'] == 'noclassification',
+                            'cmpd_classification_subclass'] = df_metadata['cmpd_classification_subclass_y']
         else:
             pass
 
@@ -220,7 +228,6 @@ def add_compound_info(compound_table_paths, metadata_paths):
         empty_list_ser = pd.Series([[],] * len(df_metadata))
         empty_ndarray_ser = pd.Series([np.array([]), ] * len(df_metadata))
         for column_name, type_ in df_metadata.dtypes.items():
-            print(type(type_))
             if type_ == np.dtype('uint64'):
                 df_metadata[column_name].fillna(0, inplace=True)
             elif type_ == np.dtype('float64'):

@@ -1,3 +1,5 @@
+import re
+
 import h5py
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
@@ -107,9 +109,12 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
     for spectrum in spectra:
         metadata = []
         for dtype in dtypes:
-            if dtype[0] in ('index', 'tag', 'source_filename', 'global_accession', 'accession_number',
-                            'inchi', 'inchikey', 'author', 'compound_name', 'title', 'instrument_type'):
-                metadata.append(spectrum.get(dtype[0], ''))
+            if dtype[0] == 'index':
+                metadata.append(spectrum.get(dtype[0]))
+            
+            elif dtype[0] in ('tag', 'source_filename', 'global_accession', 'accession_number',
+                            'inchi', 'inchikey', 'author', 'title', 'instrument_type'):
+                metadata.append(spectrum.get(dtype[0]) or '')
 
             elif dtype[0] in ('keyword', 'cluster_id', 'cluster_name'):
                 metadata.append('')
@@ -117,29 +122,47 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
             elif dtype[0] in ('precursor_mz', 'rt_in_sec', 'retention_index'):
                 metadata.append(spectrum.get(dtype[0]) or 0)
 
+            elif dtype[0] == 'compound_name':
+                metadata.append(spectrum.get('compound_name') or spectrum.get('name') or '')
+
             elif dtype[0] == 'ionization_mode':
                 ionization_mode = spectrum.get('ionization_mode')\
                                   or spectrum.get('ionizationmode')\
-                                  or spectrum.get('ionization', '')
+                                  or spectrum.get('ionization')\
+                                  or ''
 
                 if not ionization_mode:
-                    instrument_type = spectrum.get('instrument_type', '')
-                    if 'LC-ESI' in instrument_type or 'DI-ESI' in instrument_type:
+                    instrument_type = spectrum.get('instrument_type') or ''
+                    matches = re.findall(f'[A-Za-z]+', instrument_type)
+                    if 'ESI' in matches:
                         ionization_mode = 'ESI'
+                    elif 'EI' in matches:
+                        ionization_mode = 'EI'
+                    elif 'CI' in matches:
+                        ionization_mode = 'CI'
+                    elif 'MALDI' in matches:
+                        ionization_mode = 'MALDI'
+                    elif 'GC' in matches:
+                        ionization_mode = 'GC'
+                    elif 'APCI' in matches:
+                        ionization_mode = 'APCI'
+
                 metadata.append(ionization_mode)
 
             elif dtype[0] == 'fragmentation_type':
                 metadata.append(spectrum.get('fragmentation_type')
                                 or spectrum.get('fragmentation_mode')
-                                or spectrum.get('fragmentation', ''))
+                                or spectrum.get('fragmentation')
+                                or '')
 
             elif dtype[0] == 'ion_mode':
-                metadata.append(spectrum.get('ionmode', ''))
+                metadata.append(spectrum.get('ionmode') or '')
 
             elif dtype[0] == 'precursor_type':
                 metadata.append(spectrum.get('precursor_type')
                                 or spectrum.get('precursortype')
-                                or spectrum.get('adduct', ''))
+                                or spectrum.get('adduct')
+                                or '')
 
             elif dtype[0] == 'number_of_peaks':
                 metadata.append(spectrum.mz.size)
@@ -154,16 +177,16 @@ def write_metadata(metadata_path, spectra, export_tsv=False):
                 metadata.append([])
 
             elif dtype[0] == 'cmpd_classification_superclass':
-                metadata.append(spectrum.get('classification_superclass', ''))
+                metadata.append(spectrum.get('classification_superclass') or 'noclassification')
 
             elif dtype[0] == 'cmpd_classification_class':
-                metadata.append(spectrum.get('classification_class', ''))
+                metadata.append(spectrum.get('classification_class') or 'noclassification')
 
             elif dtype[0] == 'cmpd_classification_subclass':
-                metadata.append(spectrum.get('classification_subclass', ''))
+                metadata.append(spectrum.get('classification_subclass') or 'noclassification')
 
             elif dtype[0] == 'cmpd_classification_alternative_parent_list':
-                metadata.append(spectrum.get('classification_alternative_parent') or [])
+                metadata.append(spectrum.get('classification_alternative_parent') or ['noclassification'])
 
         metadata_list.append(tuple(metadata))
 
