@@ -21,7 +21,7 @@ from my_parser.spectrum_metadata_parser import (group_by_dataset,
                                                 write_metadata)
 from score.score import calculate_similarity_score, clustering_based_on_inchikey
 from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info, check_filtered_metadata
-from utils.clustering import create_cluster_frame
+from utils.clustering import create_cluster_frame, create_cluster_frame_for_grouped_spectra
 
 
 LOGGER = getLogger(__name__)
@@ -319,14 +319,13 @@ def generate_spectral_network(config_obj, _logger=None):
                       folder_name_prefix='ref_dataset_')
     # -----------------------------------------------------------------------------
 
-    add_dataset_keyword(config_obj.ref_split_category)
-    group_by_dataset()
-    serialize_grouped_spectra()
-
     # -------------------------------
     # Calculate spectral similarity
     # -------------------------------
-    config_obj.is_clustering_required = create_cluster_frame()
+    create_cluster_frame_for_grouped_spectra(sample_metadata_dir='./spectrum_metadata/grouped/sample',
+                                             ref_metadata_dir='./spectrum_metadata/grouped/ref',
+                                             output_parent_dir='scores/clustered',
+                                             calculate_inter_ref=False)
     calculate_similarity_score(config_obj.spec_matching_mode, config_obj.mz_tol, config_obj.intensity_convert_mode)
     clustering_based_on_inchikey()
 
