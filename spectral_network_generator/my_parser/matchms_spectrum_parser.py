@@ -591,3 +591,33 @@ def get_ref_spectra_paths(parent_dir_path='./serialized_spectra/grouped'):
         dataset_keyword_vs_spectra_paths[keyword] = paths
 
     return dataset_keyword_vs_spectra_paths
+
+
+def get_grouped_spectra_dirs(parent_dir_path) -> list:
+    """
+    Parameters
+    ----------
+    parent_dir_path : str
+
+    Returns
+    -------
+    list
+        If parent_dir_path includes 'ref_dataset_0', 'ref_dataset_1', 'ref_dataset_2' folders,
+        the following list will be returned.
+
+        list[('parent_dir_path/ref_dataset_0', 0),
+             ('parent_dir_path/ref_dataset_1', 1),
+             ('parent_dir_path/ref_dataset_2', 2)]
+    """
+    path_vs_index_list = []
+
+    for filename in os.listdir(parent_dir_path):
+        path = os.path.join(parent_dir_path, filename)
+        if os.path.isdir(path) and re.search(r'\d+', filename):
+            matches = re.findall(r'\d+', filename)
+            index = int(matches[-1])
+            path_vs_index_list.append((path, index))
+
+    path_vs_index_list.sort(key=lambda x: x[1])
+
+    return path_vs_index_list

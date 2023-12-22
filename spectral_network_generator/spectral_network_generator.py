@@ -11,17 +11,13 @@ from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (get_serialized_spectra_paths,
                                                initialize_serialize_spectra_file,
-                                               load_and_serialize_spectra,
-                                               serialize_filtered_spectra,
-                                               serialize_grouped_spectra)
+                                               load_and_serialize_spectra)
 from my_parser.score_parser import initialize_score_files, initialize_score_hdf5
-from my_parser.spectrum_metadata_parser import (group_by_dataset,
-                                                initialize_spectrum_metadata_file,
-                                                initialize_spectrum_metadata_hdf5,
+from my_parser.spectrum_metadata_parser import (initialize_spectrum_metadata_file,
                                                 write_metadata)
-from score.score import calculate_similarity_score, clustering_based_on_inchikey
-from utils import add_compound_info, add_dataset_keyword, add_metacyc_compound_info, check_filtered_metadata
-from utils.clustering import create_cluster_frame, create_cluster_frame_for_grouped_spectra
+from score.score import calculate_similarity_score_for_grouped_spectra, clustering_based_on_inchikey
+from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata
+from utils.clustering import create_cluster_frame_for_grouped_spectra
 
 
 LOGGER = getLogger(__name__)
@@ -326,7 +322,17 @@ def generate_spectral_network(config_obj, _logger=None):
                                              ref_metadata_dir='./spectrum_metadata/grouped/ref',
                                              output_parent_dir='scores/clustered',
                                              calculate_inter_ref=False)
-    calculate_similarity_score(config_obj.spec_matching_mode, config_obj.mz_tol, config_obj.intensity_convert_mode)
+    calculate_similarity_score_for_grouped_spectra(
+        sample_spectra_parent_dir='./serialized_spectra/grouped/sample',
+        ref_spectra_parent_dir='./serialized_spectra/grouped/ref',
+        output_parent_dir='./scores/grouped',
+        matching_mode=config_obj.spec_matching_mode,
+        tolerance=config_obj.mz_tol,
+        intensity_convert_mode=config_obj.intensity_convert_mode,
+        sample_metadata_dir='./spectrum_metadata/grouped/sample',
+        ref_metadata_dir='./spectrum_metadata/grouped/ref',
+        calculate_inter_ref=True
+    )
     clustering_based_on_inchikey()
 
     # -------
