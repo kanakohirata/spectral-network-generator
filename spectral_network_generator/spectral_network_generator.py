@@ -17,7 +17,7 @@ from my_parser.spectrum_metadata_parser import (initialize_spectrum_metadata_fil
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra, clustering_based_on_inchikey
 from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata
-from utils.clustering import create_cluster_frame_for_grouped_spectra
+from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
 
 
 LOGGER = getLogger(__name__)
@@ -42,7 +42,7 @@ def generate_spectral_network(config_obj, _logger=None):
 
     initialize_serialize_spectra_file()
     initialize_spectrum_metadata_file()
-
+    initialize_score_files()
     # Remove metacyc files -----------------------------------------
     metacyc_files = {'compound': './metacyc_compound.npy',
                      'pathway': './metacyc_pathway.npy',
@@ -51,9 +51,6 @@ def generate_spectral_network(config_obj, _logger=None):
         if os.path.isfile(_p):
             os.remove(_p)
     # --------------------------------------------------------------
-
-    initialize_score_hdf5()
-    initialize_score_files()
 
     # make sure which type/version of spec obj you are using
     # input variable config_obj.id is used when multiple versions of config object is used for mainly cross validation
