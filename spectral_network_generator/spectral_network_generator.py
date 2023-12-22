@@ -12,12 +12,13 @@ from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (get_serialized_spectra_paths,
                                                initialize_serialize_spectra_file,
                                                load_and_serialize_spectra)
-from my_parser.score_parser import initialize_score_files, initialize_score_hdf5
+from my_parser.score_parser import initialize_score_files
 from my_parser.spectrum_metadata_parser import (initialize_spectrum_metadata_file,
                                                 write_metadata)
-from score.score import calculate_similarity_score_for_grouped_spectra, clustering_based_on_inchikey
+from score.score import calculate_similarity_score_for_grouped_spectra
 from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata
 from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
+from clustering.clustering_score import cluster_grouped_score_based_on_cluster_id
 
 
 LOGGER = getLogger(__name__)
@@ -319,6 +320,7 @@ def generate_spectral_network(config_obj, _logger=None):
                                              ref_metadata_dir='./spectrum_metadata/grouped/ref',
                                              output_parent_dir='scores/clustered',
                                              calculate_inter_ref=False)
+    
     calculate_similarity_score_for_grouped_spectra(
         sample_spectra_parent_dir='./serialized_spectra/grouped/sample',
         ref_spectra_parent_dir='./serialized_spectra/grouped/ref',
@@ -330,7 +332,9 @@ def generate_spectral_network(config_obj, _logger=None):
         ref_metadata_dir='./spectrum_metadata/grouped/ref',
         calculate_inter_ref=True
     )
-    clustering_based_on_inchikey()
+
+    cluster_grouped_score_based_on_cluster_id(parent_score_dir='./scores/grouped',
+                                              parent_clustered_score_dir='./scores/clustered')
 
     # -------
     # Output

@@ -264,17 +264,32 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
 
     for (cluster_id_a, cluster_name_a), (cluster_id_b, cluster_name_b) in id_combination_list:
 
-        clustered_scores.append((
-            combination_idx,  # 'index'
-            cluster_id_a,  # 'cluster_id_a'
-            cluster_id_b,  # 'cluster_id_b'
-            0,  # 'index_a'
-            0,  # 'index_b'
-            0.0,  # 'score'
-            0,  # 'matches'
-            cluster_name_a,  # 'cluster_name_a'
-            cluster_name_b,  # 'cluster_name_b'
-        ))
+        if cluster_id_a <= cluster_id_b:
+            clustered_scores.append((
+                combination_idx,  # 'index'
+                cluster_id_a,  # 'cluster_id_a'
+                cluster_id_b,  # 'cluster_id_b'
+                0,  # 'index_a'
+                0,  # 'index_b'
+                0.0,  # 'score'
+                0,  # 'matches'
+                cluster_name_a,  # 'cluster_name_a'
+                cluster_name_b,  # 'cluster_name_b'
+            ))
+        else:
+            # 'cluster_id_a' field should be smaller than 'cluster_id_b'
+            LOGGER.warning('cluster_id_a > cluster_id_b')
+            clustered_scores.append((
+                combination_idx,  # 'index'
+                cluster_id_b,  # 'cluster_id_a'
+                cluster_id_a,  # 'cluster_id_b'
+                0,  # 'index_a'
+                0,  # 'index_b'
+                0.0,  # 'score'
+                0,  # 'matches'
+                cluster_name_b,  # 'cluster_name_a'
+                cluster_name_a,  # 'cluster_name_b'
+            ))
 
         if (combination_idx + 1) % 1000000 == 0:
             clustered_score_arr = np.array(clustered_scores,
@@ -287,6 +302,10 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
                                                   ('matches', 'u2'),
                                                   ('cluster_name_a', 'O'),
                                                   ('cluster_name_b', 'O')])
+
+            # Sort by cluster_id_a and cluster_id_b
+            clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr,
+                                                                 order=['cluster_id_a', 'cluster_id_b'])]
 
             clustered_score_path = os.path.join(dir_output, f'{combination_idx - 999999}.npy')
             # Write cluster frame.
@@ -308,6 +327,9 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
                                           ('matches', 'u2'),
                                           ('cluster_name_a', 'O'),
                                           ('cluster_name_b', 'O')])
+    
+    # Sort by cluster_id_a and cluster_id_b
+    clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr, order=['cluster_id_a', 'cluster_id_b'])]
 
     clustered_score_path = os.path.join(dir_output, f'{int(combination_idx / 1000000) * 1000000}.npy')
     # Write cluster frame.
@@ -378,7 +400,7 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         metadata_arr['cluster_name'] = np.char.add(f'{filename}|', cluster_name_body_arr)
 
         # Add cluster id
-        cluster_name_body_df = pd.DataFrame(cluster_name_body_arr, columns=['cluster_name'])
+        cluster_name_body_df = pd.DataFrame(metadata_arr['cluster_name'], columns=['cluster_name'])
         cluster_name_body_df_unique = pd.DataFrame(cluster_name_body_df['cluster_name'].unique(),
                                                    columns=['cluster_name'])
         cluster_name_body_df_unique['cluster_id'] = list(range(cluster_id_start, cluster_id_start + len(cluster_name_body_df_unique)))
