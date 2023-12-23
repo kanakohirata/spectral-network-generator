@@ -4,7 +4,6 @@ import os
 from utils import get_paths
 
 
-
 LOGGER = getLogger(__name__)
 LOGGER.setLevel(DEBUG)
 handler = StreamHandler()
@@ -46,6 +45,9 @@ def cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_pa
         # Swap cluster_name_a and cluster_name_b
         _arr_to_replace['cluster_name_a'] = score_arr[mask_to_replace]['cluster_name_b']
         _arr_to_replace['cluster_name_b'] = score_arr[mask_to_replace]['cluster_name_a']
+        # Swap matched_peak_idx_a and matched_peak_idx_b
+        _arr_to_replace['matched_peak_idx_a'] = score_arr[mask_to_replace]['matched_peak_idx_b']
+        _arr_to_replace['matched_peak_idx_b'] = score_arr[mask_to_replace]['matched_peak_idx_a']
 
         _arr_to_replace['score'] = score_arr[mask_to_replace]['score']
         _arr_to_replace['matches'] = score_arr[mask_to_replace]['matches']
@@ -121,6 +123,9 @@ def cluster_grouped_score_based_on_cluster_id(parent_score_dir, parent_clustered
     clustered_score_dir_name_vs_path_dict = get_paths.get_folder_name_vs_path_dict(parent_clustered_score_dir)
 
     for score_dir_name, score_dir_path in score_dir_name_vs_path_list:
+        if score_dir_name not in clustered_score_dir_name_vs_path_dict:
+            continue
+
         # Get clustered score paths.
         clustered_score_dir_path = clustered_score_dir_name_vs_path_dict[score_dir_name]
         clustered_score_paths = get_paths.get_npy_paths(clustered_score_dir_path)

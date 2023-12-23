@@ -262,46 +262,55 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
     clustered_scores = []
     combination_idx = 0
 
+    score_dtype = [
+        ('index', 'u8'),
+        ('index_a', 'u8'),
+        ('index_b', 'u8'),
+        ('cluster_id_a', 'u8'),
+        ('cluster_id_b', 'u8'),
+        ('cluster_name_a', 'O'),
+        ('cluster_name_b', 'O'),
+        ('score', 'f2'),
+        ('matches', 'u2'),
+        ('matched_peak_idx_a', 'O'),  # list
+        ('matched_peak_idx_b', 'O')  # list
+    ]
+
     for (cluster_id_a, cluster_name_a), (cluster_id_b, cluster_name_b) in id_combination_list:
 
         if cluster_id_a <= cluster_id_b:
             clustered_scores.append((
                 combination_idx,  # 'index'
-                cluster_id_a,  # 'cluster_id_a'
-                cluster_id_b,  # 'cluster_id_b'
                 0,  # 'index_a'
                 0,  # 'index_b'
-                0.0,  # 'score'
-                0,  # 'matches'
+                cluster_id_a,  # 'cluster_id_a'
+                cluster_id_b,  # 'cluster_id_b'
                 cluster_name_a,  # 'cluster_name_a'
                 cluster_name_b,  # 'cluster_name_b'
+                0.0,  # 'score'
+                0,  # 'matches'
+                [],  # 'matched_peak_idx_a'
+                []  # 'matched_peak_idx_b'
             ))
         else:
             # 'cluster_id_a' field should be smaller than 'cluster_id_b'
             LOGGER.warning('cluster_id_a > cluster_id_b')
             clustered_scores.append((
                 combination_idx,  # 'index'
-                cluster_id_b,  # 'cluster_id_a'
-                cluster_id_a,  # 'cluster_id_b'
                 0,  # 'index_a'
                 0,  # 'index_b'
+                cluster_id_a,  # 'cluster_id_a'
+                cluster_id_b,  # 'cluster_id_b'
+                cluster_name_a,  # 'cluster_name_a'
+                cluster_name_b,  # 'cluster_name_b'
                 0.0,  # 'score'
                 0,  # 'matches'
-                cluster_name_b,  # 'cluster_name_a'
-                cluster_name_a,  # 'cluster_name_b'
+                [],  # 'matched_peak_idx_a'
+                []  # 'matched_peak_idx_b'
             ))
 
         if (combination_idx + 1) % 1000000 == 0:
-            clustered_score_arr = np.array(clustered_scores,
-                                           dtype=[('index', 'u8'),
-                                                  ('cluster_id_a', 'u8'),
-                                                  ('cluster_id_b', 'u8'),
-                                                  ('index_a', 'u8'),
-                                                  ('index_b', 'u8'),
-                                                  ('score', 'f2'),
-                                                  ('matches', 'u2'),
-                                                  ('cluster_name_a', 'O'),
-                                                  ('cluster_name_b', 'O')])
+            clustered_score_arr = np.array(clustered_scores, dtype=score_dtype)
 
             # Sort by cluster_id_a and cluster_id_b
             clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr,
@@ -317,16 +326,7 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
 
         combination_idx += 1
 
-    clustered_score_arr = np.array(clustered_scores,
-                                   dtype=[('index', 'u8'),
-                                          ('cluster_id_a', 'u8'),
-                                          ('cluster_id_b', 'u8'),
-                                          ('index_a', 'u8'),
-                                          ('index_b', 'u8'),
-                                          ('score', 'f2'),
-                                          ('matches', 'u2'),
-                                          ('cluster_name_a', 'O'),
-                                          ('cluster_name_b', 'O')])
+    clustered_score_arr = np.array(clustered_scores, dtype=score_dtype)
     
     # Sort by cluster_id_a and cluster_id_b
     clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr, order=['cluster_id_a', 'cluster_id_b'])]

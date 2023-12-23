@@ -227,9 +227,11 @@ def generate_spectral_network(config_obj, _logger=None):
         mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank,
         export_tsv=True)
 
-    remove_sample_spectra_with_no_precursor_mz(sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
-                                               output_path='./spectrum_metadata/filtered/sample_metadata.npy',
-                                               export_tsv=True)
+    if config_obj.spec_matching_mode == 2:
+        remove_sample_spectra_with_no_precursor_mz(
+            sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
+            output_path='./spectrum_metadata/filtered/sample_metadata.npy',
+            export_tsv=True)
     
     # Check whether there are remaining spectra after filtering.
     if not check_filtered_metadata('./spectrum_metadata/filtered/sample_metadata.npy'):
@@ -338,7 +340,7 @@ def generate_spectral_network(config_obj, _logger=None):
         intensity_convert_mode=config_obj.intensity_convert_mode,
         sample_metadata_dir='./spectrum_metadata/grouped/sample',
         ref_metadata_dir='./spectrum_metadata/grouped/ref',
-        calculate_inter_ref=True
+        calculate_inter_ref=False
     )
 
     cluster_grouped_score_based_on_cluster_id(parent_score_dir='./scores/grouped',

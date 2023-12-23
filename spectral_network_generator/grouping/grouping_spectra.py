@@ -1,11 +1,22 @@
+from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 import os
 import pickle
 from my_parser.matchms_spectrum_parser import get_serialized_spectra_paths
 from my_parser.spectrum_metadata_parser import get_npy_metadata_paths
 
+LOGGER = getLogger(__name__)
+LOGGER.setLevel(DEBUG)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+formatter = Formatter('\t'.join(['%(asctime)s', '[%(levelname)s]', '%(name)s(Line:%(lineno)d)', '%(message)s']))
+handler.setFormatter(formatter)
+LOGGER.addHandler(handler)
+LOGGER.propagate = False
+
 
 def group_spectra(spectra_dir, metadata_dir, output_parent_dir, folder_name_prefix):
+    LOGGER.info(f'Group and serialized spectra. ({spectra_dir})')
     length_to_export = 1000
 
     spectra_path_vs_index_list = get_serialized_spectra_paths(spectra_dir)

@@ -5,19 +5,18 @@ import itertools
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 from matchms import calculate_scores
-from matchms.similarity import CosineGreedy, ModifiedCosine
 import numpy as np
 import numpy.lib.recfunctions as rfn
 import os
-import pandas as pd
 import pickle
 import re
+from . import CosineGreedyWithMatchedIndex, ModifiedCosineWithMatchedIndex
 from my_parser.matchms_spectrum_parser import (get_grouped_spectra_dirs,
                                                get_ref_spectra_paths,
                                                get_sample_spectra_paths,
                                                get_serialized_spectra_paths)
 from my_parser.spectrum_metadata_parser import get_npy_metadata_paths
-from my_parser.score_parser import get_chunks, initialize_score_hdf5, iter_clustered_score_array, iter_score_array
+from my_parser.score_parser import initialize_score_hdf5, iter_clustered_score_array, iter_score_array
 from utils.spectrum_processing import set_intensity_in_log1p
 
 
@@ -40,13 +39,15 @@ def _calculate_similarity_score_with_cosine_greedy(references, queries, toleranc
         logger = LOGGER
 
     return calculate_scores(references=references, queries=queries,
-                            similarity_function=CosineGreedy(tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
+                            similarity_function=CosineGreedyWithMatchedIndex(
+                                tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
                             is_symmetric=is_symmetric)
 
 
 def _calculate_similarity_score_with_modified_cosine_greedy(references, queries, tolerance, mz_power=0, intensity_power=1, is_symmetric=False):    
     return calculate_scores(references=references, queries=queries,
-                            similarity_function=ModifiedCosine(tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
+                            similarity_function=ModifiedCosineWithMatchedIndex(
+                                tolerance=tolerance, mz_power=mz_power, intensity_power=intensity_power),
                             is_symmetric=is_symmetric)
 
 
@@ -431,7 +432,8 @@ def _calculate_similarity_score_for_grouped_spectra(
                                         x[0][0][0], x[0][1][0],  # index_a, index_b
                                         x[0][0][1], x[0][1][1],  # cluster_id_a, cluster_id_b
                                         x[0][0][2], x[0][1][2],  # cluster_name_a, cluster_name_b
-                                        x[1][0], x[1][1]  # score, matches
+                                        x[1][0], x[1][1],  # score, matches
+                                        x[1][2], x[1][3]  # matched_peak_idx_a, matched_peak_idx_b
                                     ),
                           zip(score_data, scores.scores.flatten())))
 
@@ -439,7 +441,8 @@ def _calculate_similarity_score_for_grouped_spectra(
                          dtype=[('index_a', 'u8'), ('index_b', 'u8'),
                                 ('cluster_id_a', 'u8'), ('cluster_id_b', 'u8'),
                                 ('cluster_name_a', 'O'), ('cluster_name_b', 'O'),
-                                ('score', 'f8'), ('matches', 'u2')])
+                                ('score', 'f8'), ('matches', 'u2'),
+                                ('matched_peak_idx_a', 'O'), ('matched_peak_idx_b', 'O')])
     
     if is_symmetric:
         mask = score_arr['index_a'] < score_arr['index_b']
