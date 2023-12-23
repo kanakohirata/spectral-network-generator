@@ -155,6 +155,55 @@ def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadat
         os.remove(temp_output_path)
 
 
+def remove_sample_spectra_with_no_precursor_mz(sample_metadata_path, output_path, export_tsv=False):
+    # Load sample metadata array
+    sample_arr_all = np.load(sample_metadata_path, allow_pickle=True)
+    if not sample_arr_all.size:
+        return
+
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    # If sample_metadata_path == output_path,
+    # sample_metadata_path will be updated after outputting to the temp_output_path file.
+    temp_output_path = os.path.splitext(output_path)[0] + '__temp.npy'
+
+    arr_to_retain = None
+
+    # Iterate sample metadata array per 10000 rows.
+    for arr, _, _ in split_array(sample_arr_all, 10000):
+        mask = arr['precursor_mz'] > 0
+
+        if not np.any(mask):
+            continue
+
+        arr_to_retain = arr[mask]
+
+        # Append arr_to_retain to an already existing array.
+        if os.path.isfile(temp_output_path):
+            existing_arr = np.load(temp_output_path, allow_pickle=True)
+            arr_to_retain = np.hstack((existing_arr, arr_to_retain))
+
+        with open(temp_output_path, 'wb') as f:
+            np.save(f, arr_to_retain)
+            f.flush()
+
+    if arr_to_retain is not None:
+        with open(output_path, 'wb') as f:
+            np.save(f, arr_to_retain)
+            f.flush()
+
+        if export_tsv:
+            tsv_path = os.path.splitext(output_path)[0] + '.tsv'
+            df = pd.DataFrame.from_records(arr_to_retain)
+            df.to_csv(tsv_path, sep='\t', index=False)
+
+        # Remove temp_output_path file
+        os.remove(temp_output_path)
+
+
 def filter_sample_spectra(config_obj, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
@@ -200,7 +249,7 @@ def filter_sample_spectra(config_obj, _logger=None):
         h5.flush()
 
 
-def filter_reference_spectra(config_obj, _logger=None):
+def filter_reference_spectra_old(config_obj, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:

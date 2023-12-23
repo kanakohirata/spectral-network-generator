@@ -8,7 +8,8 @@ from grouping import grouping_metadata, group_spectra
 from my_filter import (extract_top_x_peak_rich,
                        filter_reference_spectra,
                        filter_sample_spectra,
-                       remove_blank_spectra_from_sample_spectra)
+                       remove_blank_spectra_from_sample_spectra,
+                       remove_sample_spectra_with_no_precursor_mz)
 from my_parser import metacyc_parser as read_meta
 from my_parser.cluster_attribute_parser import write_cluster_attribute
 from my_parser.edge_info_parser import write_edge_info
@@ -226,6 +227,10 @@ def generate_spectral_network(config_obj, _logger=None):
         mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank,
         export_tsv=True)
 
+    remove_sample_spectra_with_no_precursor_mz(sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                               output_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                               export_tsv=True)
+    
     # Check whether there are remaining spectra after filtering.
     if not check_filtered_metadata('./spectrum_metadata/filtered/sample_metadata.npy'):
         raise ValueError('There is no spectrum after filtering.')
