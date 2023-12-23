@@ -46,15 +46,15 @@ def write_cluster_attribute_old(path, spectra_datasets):
 def write_cluster_attribute(path, ref_split_category):
     LOGGER.debug(f'Write cluster attribute: {path}')
     arr = None
-    for _arr in iter_clustered_score_array(return_path=False, return_index=False):
-        _arr_a = _arr[['index_a', 'cluster_id_a']]
-        _arr_b = _arr[['index_b', 'cluster_id_b']]
+    for _arr, chunk_start, chunk_end in get_chunks('clustered_score', db_chunk_size=1000000, path='./score.h5'):
+        _arr_a = _arr[['global_accession_a', 'cluster_id_a']]
+        _arr_b = _arr[['global_accession_b', 'cluster_id_b']]
 
         _arr_a = np.unique(_arr_a)
         _arr_b = np.unique(_arr_b)
 
-        _arr_a = _arr_a.astype([('index', 'u8'), ('cluster_id', 'O')])
-        _arr_b = _arr_b.astype([('index', 'u8'), ('cluster_id', 'O')])
+        _arr_a = _arr_a.astype([('global_accession', 'O'), ('cluster_id', 'O')])
+        _arr_b = _arr_b.astype([('global_accession', 'O'), ('cluster_id', 'O')])
 
         _arr = np.hstack((_arr_a, _arr_b))
 
@@ -65,6 +65,7 @@ def write_cluster_attribute(path, ref_split_category):
             arr = np.unique(_arr)
 
     df_cluster_id = pd.DataFrame.from_records(arr)
+    df_cluster_id['global_accession'] = df_cluster_id['global_accession'].str.decode('utf-8')
     df_cluster_id['cluster_id'] = df_cluster_id['cluster_id'].str.decode('utf-8')
 
     with h5py.File('./spectrum_metadata.h5', 'r') as h5_meta:
@@ -121,7 +122,7 @@ def write_cluster_attribute(path, ref_split_category):
                             if s in ('Homogeneous non-metal compounds', 'Mixed metal/non-metal compounds')
                             else 'Organic compounds' for s in sl])
 
-        df_meta = pd.merge(df_meta, df_cluster_id, on='index', how='left')
+        df_meta = pd.merge(df_meta, df_cluster_id, on='global_accession', how='left')
 
         # Fill empty "cluster_id" of sample
         df_meta.loc[(df_meta['tag'] == 'sample') & (pd.isna(df_meta['cluster_id'])), 'cluster_id'] = df_meta['global_accession']

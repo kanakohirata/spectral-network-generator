@@ -298,6 +298,9 @@ def read_config_file(path='./config.ini', _logger=None):
     # [peak matching related] section
     _list_spec_matching_mode = inifile.get('peak matching related', 'spec_matching_mode').split(',')
     list_spec_matching_mode = [int(_value.strip()) for _value in _list_spec_matching_mode if _value.strip()]
+    for _n in list_spec_matching_mode:
+        if _n not in (1, 2):
+            raise ValueError(f'spec_matching_mode should be 1 or 2: {_n}')
 
     _list_mz_tol = inifile.get('peak matching related', 'mz_tol').split(',')
     list_mz_tol = [float(_value.strip()) for _value in _list_mz_tol if _value.strip()]
