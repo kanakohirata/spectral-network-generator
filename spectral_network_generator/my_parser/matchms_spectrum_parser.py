@@ -2,7 +2,6 @@ from glob import glob
 import h5py
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
-import numpy as np
 from matchms import Spectrum
 from matchms.filtering import (add_retention_index, derive_inchi_from_smiles,
                                derive_inchikey_from_inchi, normalize_intensities, select_by_relative_intensity)
@@ -11,7 +10,6 @@ import os
 import pickle
 import re
 import shutil
-import time
 from my_parser.mona_parser import convert_json_to_matchms_spectra
 from utils.spectrum_processing import (deisotope, introduce_random_delta_to_mz,
                                        set_top_n_most_intense_peaks,

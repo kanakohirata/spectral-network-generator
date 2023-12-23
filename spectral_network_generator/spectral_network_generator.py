@@ -17,7 +17,9 @@ from my_parser.matchms_spectrum_parser import (get_serialized_spectra_paths,
                                                initialize_serialize_spectra_file,
                                                load_and_serialize_spectra)
 from my_parser.score_parser import initialize_score_files
-from my_parser.spectrum_metadata_parser import (initialize_spectrum_metadata_file,
+from my_parser.spectrum_metadata_parser import (concatenate_npy_metadata_files,
+                                                get_npy_metadata_paths,
+                                                initialize_spectrum_metadata_file,
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra
 from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata
@@ -345,6 +347,14 @@ def generate_spectral_network(config_obj, _logger=None):
 
     cluster_grouped_score_based_on_cluster_id(parent_score_dir='./scores/grouped',
                                               parent_clustered_score_dir='./scores/clustered')
+
+    # Concatenate metadata files.
+    metadata_paths = get_npy_metadata_paths('./spectrum_metadata/grouped/sample')
+    metadata_paths += get_npy_metadata_paths('./spectrum_metadata/grouped/ref')
+    metadata_paths = [x[0] for x in metadata_paths]
+    concatenate_npy_metadata_files(paths=metadata_paths,
+                                   output_path='./spectrum_metadata/grouped/all.npy',
+                                   export_tsv=True)
 
     # -------
     # Output

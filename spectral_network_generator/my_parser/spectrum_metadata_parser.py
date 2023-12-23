@@ -315,3 +315,29 @@ def get_npy_metadata_paths(dir_path) -> list:
     path_vs_index_list.sort(key=lambda x: x[1])
 
     return path_vs_index_list
+
+
+def concatenate_npy_metadata_files(paths, output_path, export_tsv=False):
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    arr = None
+    for path in paths:
+        # Load metadata array.
+        arr = np.load(path, allow_pickle=True)
+
+        # Append arr to an already existing array.
+        if os.path.isfile(output_path):
+            existing_arr = np.load(output_path, allow_pickle=True)
+            arr = np.hstack((existing_arr, arr))
+
+        with open(output_path, 'wb') as f:
+            np.save(f, arr)
+            f.flush()
+
+    if export_tsv and arr is not None:
+        tsv_path = os.path.splitext(output_path)[0] + '.tsv'
+        df = pd.DataFrame.from_records(arr)
+        df.to_csv(tsv_path, sep='\t', index=False)
