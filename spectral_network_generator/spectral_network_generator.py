@@ -365,4 +365,5 @@ def generate_spectral_network(config_obj, _logger=None):
                     metadata_path='./spectrum_metadata/grouped/all.npy',
                     score_threshold=config_obj.score_threshold_to_output,
                     minimum_peak_match_to_output=config_obj.minimum_peak_match_to_output)
-    write_cluster_attribute(cluster_attribute_path, config_obj.ref_split_category)
+    
+    write_cluster_attribute(output_path=cluster_attribute_path, metadata_path='./spectrum_metadata/grouped/all.npy')
