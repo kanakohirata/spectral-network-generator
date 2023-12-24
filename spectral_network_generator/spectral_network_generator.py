@@ -7,7 +7,6 @@ import os
 from grouping import grouping_metadata, group_spectra
 from my_filter import (extract_top_x_peak_rich,
                        filter_reference_spectra,
-                       filter_sample_spectra,
                        remove_blank_spectra_from_sample_spectra,
                        remove_sample_spectra_with_no_precursor_mz)
 from my_parser import metacyc_parser as read_meta
@@ -22,7 +21,7 @@ from my_parser.spectrum_metadata_parser import (concatenate_npy_metadata_files,
                                                 initialize_spectrum_metadata_file,
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra
-from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata
+from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths
 from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
 from clustering.clustering_score import cluster_grouped_score_based_on_cluster_id
 
@@ -359,6 +358,11 @@ def generate_spectral_network(config_obj, _logger=None):
     # -------
     # Output
     # -------
-    write_edge_info(edge_info_path, config_obj.score_threshold_to_output, config_obj.minimum_peak_match_to_output,
-                    config_obj.mz_tol, config_obj.create_edge_within_layer_ref)
+    # Get directories including clustered scores.
+    clustered_score_paths = get_paths.get_all_paths_of_clustered_score()
+    write_edge_info(output_path=edge_info_path,
+                    score_paths=clustered_score_paths,
+                    metadata_path='./spectrum_metadata/grouped/all.npy',
+                    score_threshold=config_obj.score_threshold_to_output,
+                    minimum_peak_match_to_output=config_obj.minimum_peak_match_to_output)
     write_cluster_attribute(cluster_attribute_path, config_obj.ref_split_category)

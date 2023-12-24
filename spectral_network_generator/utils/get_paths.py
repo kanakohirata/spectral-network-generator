@@ -1,4 +1,8 @@
 import os
+import pickle
+
+from clustering import clustering_frame
+from my_parser.score_parser import get_clustered_score_paths
 
 
 def get_specific_ext_paths(dir_path, ext) -> list:
@@ -121,3 +125,59 @@ def get_folder_name_vs_path_dict(parent_folder_path) -> dict:
             dir_name_vs_path_dict[name] = path
 
     return dir_name_vs_path_dict
+
+
+def _load_serialized_list(path):
+    _list = []
+    if os.path.isfile(path):
+        with open(path, 'rb') as f:
+            _list = pickle.load(f)
+    return _list
+
+
+def get_dirs_of_clustered_score_for_inner_sample():
+    path = clustering_frame.PATH_OF_DIR_LIST_INNER_SAMPLE
+    return _load_serialized_list(path)
+
+
+def get_dirs_of_clustered_score_for_inter_sample():
+    path = clustering_frame.PATH_OF_DIR_LIST_INTER_SAMPLE
+    return _load_serialized_list(path)
+
+
+def get_dirs_of_clustered_score_for_inter_sample_and_ref():
+    path = clustering_frame.PATH_OF_DIR_LIST_INTER_SAMPLE_AND_REF
+    return _load_serialized_list(path)
+
+
+def get_dirs_of_clustered_score_for_inner_ref():
+    path = clustering_frame.PATH_OF_DIR_LIST_INNER_REF
+    return _load_serialized_list(path)
+
+
+def get_dirs_of_clustered_score_for_inter_ref():
+    path = clustering_frame.PATH_OF_DIR_LIST_INTER_REF
+    return _load_serialized_list(path)
+
+
+def get_all_dirs_of_clustered_score():
+    dir_list = get_dirs_of_clustered_score_for_inner_sample()
+    dir_list += get_dirs_of_clustered_score_for_inter_sample()
+    dir_list += get_dirs_of_clustered_score_for_inter_sample_and_ref()
+    dir_list += get_dirs_of_clustered_score_for_inner_ref()
+    dir_list += get_dirs_of_clustered_score_for_inter_ref()
+
+    return dir_list
+
+
+def get_all_paths_of_clustered_score():
+    dir_list = get_all_dirs_of_clustered_score()
+
+    paths = []
+    for dir_ in dir_list:
+        _paths = get_clustered_score_paths(dir_)
+        paths.extend(_paths)
+
+    paths = [path_vs_idx[0] for path_vs_idx in paths]
+
+    return paths

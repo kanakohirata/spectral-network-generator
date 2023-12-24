@@ -21,6 +21,11 @@ H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
 CLUSTER_NAME_LIST_PATH = './__cluster_name_list.pickle'
+PATH_OF_DIR_LIST_INNER_SAMPLE = './__clustered_score_dir_list_inner_sample.pickle'
+PATH_OF_DIR_LIST_INTER_SAMPLE = './__clustered_score_dir_list_inter_sample.pickle'
+PATH_OF_DIR_LIST_INTER_SAMPLE_AND_REF = './__clustered_score_dir_list_inter_sample_and_ref.pickle'
+PATH_OF_DIR_LIST_INNER_REF = './__clustered_score_dir_list_inner_ref.pickle'
+PATH_OF_DIR_LIST_INTER_REF = './__clustered_score_dir_list_inter_ref.pickle'
 
 
 def add_cluster_id(score_path='./score.h5'):
@@ -434,48 +439,86 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
     dataset_combinations = []
     # Add inner sample combination: sample dataset x vs sample dataset x scores. ----------
     if calculate_inner_sample:
+        output_dir_list = []
         for path, _ in sample_metadata_path_vs_idx_list:
-            filename = os.path.splitext(os.path.basename(path))[0]
-            dataset_combinations.append((filename, filename))
+            filename_a = os.path.splitext(os.path.basename(path))[0]
+            output_folder_name = f'{filename_a}_vs_{filename_a}'
+            output_dir = os.path.join(output_parent_dir, output_folder_name)
+            dataset_combinations.append((filename_a, filename_a, output_dir))
+            output_dir_list.append(output_dir)
+
+        # Save output_dir_list
+        with open(PATH_OF_DIR_LIST_INNER_SAMPLE, 'wb') as f:
+            pickle.dump(output_dir_list, f)
     # -------------------------------------------------------------------------------------
 
     # Add inter sample combination: sample dataset x vs sample dataset y scores. ----------
     if calculate_inter_sample:
+        output_dir_list = []
         for (path_a, _), (path_b, _) in list(itertools.combinations(sample_metadata_path_vs_idx_list, 2)):
             filename_a = os.path.splitext(os.path.basename(path_a))[0]
             filename_b = os.path.splitext(os.path.basename(path_b))[0]
-            dataset_combinations.append((filename_a, filename_b))
+            output_folder_name = f'{filename_a}_vs_{filename_b}'
+            output_dir = os.path.join(output_parent_dir, output_folder_name)
+            dataset_combinations.append((filename_a, filename_b, output_dir))
+            output_dir_list.append(output_dir)
+
+        # Save output_dir_list
+        with open(PATH_OF_DIR_LIST_INTER_SAMPLE, 'wb') as f:
+            pickle.dump(output_dir_list, f)
     # -------------------------------------------------------------------------------------
 
     # Add inter sample and reference combination: sample dataset x vs reference dataset x scores. -------
     if calculate_inter_sample_and_ref:
+        output_dir_list = []
         for (path_a, _), (path_b, _) in list(itertools.product(sample_metadata_path_vs_idx_list,
                                                                ref_metadata_path_vs_idx_list)):
             filename_a = os.path.splitext(os.path.basename(path_a))[0]
             filename_b = os.path.splitext(os.path.basename(path_b))[0]
-            dataset_combinations.append((filename_a, filename_b))
+            output_folder_name = f'{filename_a}_vs_{filename_b}'
+            output_dir = os.path.join(output_parent_dir, output_folder_name)
+            dataset_combinations.append((filename_a, filename_b, output_dir))
+            output_dir_list.append(output_dir)
+
+        # Save output_dir_list
+        with open(PATH_OF_DIR_LIST_INTER_SAMPLE_AND_REF, 'wb') as f:
+            pickle.dump(output_dir_list, f)
     # ---------------------------------------------------------------------------------------------------
 
     # Add inner reference combination: reference dataset x vs reference dataset x scores. ---------------
     if calculate_inner_ref:
+        output_dir_list = []
         for path, _ in ref_metadata_path_vs_idx_list:
-            filename = os.path.splitext(os.path.basename(path))[0]
-            dataset_combinations.append((filename, filename))
+            filename_a = os.path.splitext(os.path.basename(path))[0]
+            output_folder_name = f'{filename_a}_vs_{filename_a}'
+            output_dir = os.path.join(output_parent_dir, output_folder_name)
+            dataset_combinations.append((filename_a, filename_a, output_dir))
+            output_dir_list.append(output_dir)
+
+        # Save output_dir_list
+        with open(PATH_OF_DIR_LIST_INNER_REF, 'wb') as f:
+            pickle.dump(output_dir_list, f)
     # ---------------------------------------------------------------------------------------------------
 
     # Add inter reference combination: reference dataset x vs reference dataset y scores. ---------------
     if calculate_inter_ref:
+        output_dir_list = []
         for (path_a, _), (path_b, _) in list(itertools.combinations(ref_metadata_path_vs_idx_list, 2)):
             filename_a = os.path.splitext(os.path.basename(path_a))[0]
             filename_b = os.path.splitext(os.path.basename(path_b))[0]
-            dataset_combinations.append((filename_a, filename_b))
+            output_folder_name = f'{filename_a}_vs_{filename_b}'
+            output_dir = os.path.join(output_parent_dir, output_folder_name)
+            dataset_combinations.append((filename_a, filename_b, output_dir))
+            output_dir_list.append(output_dir)
+
+        # Save output_dir_list
+        with open(PATH_OF_DIR_LIST_INTER_REF, 'wb') as f:
+            pickle.dump(output_dir_list, f)
     # ---------------------------------------------------------------------------------------------------
 
     # Create cluster frame -------------------------------------------------------------------
-    for filename_a, filename_b in dataset_combinations:
+    for filename_a, filename_b, output_dir in dataset_combinations:
         # Make a output folder
-        output_folder_name = f'{filename_a}_vs_{filename_b}'
-        output_dir = os.path.join(output_parent_dir, output_folder_name)
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
 
