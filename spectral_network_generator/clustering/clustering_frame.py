@@ -450,6 +450,9 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         # Save output_dir_list
         with open(PATH_OF_DIR_LIST_INNER_SAMPLE, 'wb') as f:
             pickle.dump(output_dir_list, f)
+    else:
+        with open(PATH_OF_DIR_LIST_INNER_SAMPLE, 'wb') as f:
+            pickle.dump([], f)
     # -------------------------------------------------------------------------------------
 
     # Add inter sample combination: sample dataset x vs sample dataset y scores. ----------
@@ -466,6 +469,9 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         # Save output_dir_list
         with open(PATH_OF_DIR_LIST_INTER_SAMPLE, 'wb') as f:
             pickle.dump(output_dir_list, f)
+    else:
+        with open(PATH_OF_DIR_LIST_INTER_SAMPLE, 'wb') as f:
+            pickle.dump([], f)
     # -------------------------------------------------------------------------------------
 
     # Add inter sample and reference combination: sample dataset x vs reference dataset x scores. -------
@@ -483,6 +489,9 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         # Save output_dir_list
         with open(PATH_OF_DIR_LIST_INTER_SAMPLE_AND_REF, 'wb') as f:
             pickle.dump(output_dir_list, f)
+    else:
+        with open(PATH_OF_DIR_LIST_INTER_SAMPLE_AND_REF, 'wb') as f:
+            pickle.dump([], f)
     # ---------------------------------------------------------------------------------------------------
 
     # Add inner reference combination: reference dataset x vs reference dataset x scores. ---------------
@@ -498,6 +507,9 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         # Save output_dir_list
         with open(PATH_OF_DIR_LIST_INNER_REF, 'wb') as f:
             pickle.dump(output_dir_list, f)
+    else:
+        with open(PATH_OF_DIR_LIST_INNER_REF, 'wb') as f:
+            pickle.dump([], f)
     # ---------------------------------------------------------------------------------------------------
 
     # Add inter reference combination: reference dataset x vs reference dataset y scores. ---------------
@@ -514,6 +526,9 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         # Save output_dir_list
         with open(PATH_OF_DIR_LIST_INTER_REF, 'wb') as f:
             pickle.dump(output_dir_list, f)
+    else:
+        with open(PATH_OF_DIR_LIST_INTER_REF, 'wb') as f:
+            pickle.dump([], f)
     # ---------------------------------------------------------------------------------------------------
 
     # Create cluster frame -------------------------------------------------------------------

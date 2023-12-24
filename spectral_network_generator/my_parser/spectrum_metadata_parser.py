@@ -318,6 +318,9 @@ def get_npy_metadata_paths(dir_path) -> list:
 
 
 def concatenate_npy_metadata_files(paths, output_path, export_tsv=False):
+    if os.path.isfile(output_path):
+        os.remove(output_path)
+
     # Make output folder if it does not exist.
     output_dir = os.path.dirname(output_path)
     if not os.path.isdir(output_dir):

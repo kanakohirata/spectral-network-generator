@@ -42,7 +42,11 @@ class SpecNetGenConfig:
         self.list_ref_select_keyword = []
         self.list_ref_exclude_keyword = []
 
-        self.create_edge_within_layer_ref = 0
+        self.calculate_inner_sample = True
+        self.calculate_inter_sample = True
+        self.calculate_inter_sample_and_reference = True
+        self.calculate_inner_reference = True
+        self.calculate_inter_reference = True
         self.list_decoy = []
 
         # filtering
@@ -179,7 +183,45 @@ def read_config_file(path='./config.ini', _logger=None):
         my_config.list_ref_spec_filename.append(_filename)
         my_config.list_ref_spec_path.append(_path)
 
-    my_config.create_edge_within_layer_ref = int(inifile.get('input', 'create_edge_within_layer_ref'))
+    calculate_inner_sample = inifile.get('input', 'calculate_inner_sample')
+    if calculate_inner_sample not in ('0', '1'):
+        raise ValueError(f'"calculate_inner_sample" must be 0 or 1: {calculate_inner_sample}')
+    if calculate_inner_sample == '0':
+        my_config.calculate_inner_sample = False
+    else:
+        my_config.calculate_inner_sample = True
+
+    calculate_inter_sample = inifile.get('input', 'calculate_inter_sample')
+    if calculate_inter_sample not in ('0', '1'):
+        raise ValueError(f'"calculate_inter_sample" must be 0 or 1: {calculate_inter_sample}')
+    if calculate_inter_sample == '0':
+        my_config.calculate_inter_sample = False
+    else:
+        my_config.calculate_inter_sample = True
+
+    calculate_inter_sample_and_reference = inifile.get('input', 'calculate_inter_sample_and_reference')
+    if calculate_inter_sample_and_reference not in ('0', '1'):
+        raise ValueError(f'"calculate_inter_sample_and_reference" must be 0 or 1: {calculate_inter_sample_and_reference}')
+    if calculate_inter_sample_and_reference == '0':
+        my_config.calculate_inter_sample_and_reference = False
+    else:
+        my_config.calculate_inter_sample_and_reference = True
+
+    calculate_inner_reference = inifile.get('input', 'calculate_inner_reference')
+    if calculate_inner_reference not in ('0', '1'):
+        raise ValueError(f'"calculate_inner_reference" must be 0 or 1: {calculate_inner_reference}')
+    if calculate_inner_reference == '0':
+        my_config.calculate_inner_reference = False
+    else:
+        my_config.calculate_inner_reference = True
+
+    calculate_inter_reference = inifile.get('input', 'calculate_inter_reference')
+    if calculate_inter_reference not in ('0', '1'):
+        raise ValueError(f'"calculate_inter_reference" must be 0 or 1: {calculate_inter_reference}')
+    if calculate_inter_reference == '0':
+        my_config.calculate_inter_reference = False
+    else:
+        my_config.calculate_inter_reference = True
 
     _ref_split_category = inifile.get('input', 'ref_split_category')
     if _ref_split_category not in ('', 'cmpd_classification_superclass', 'cmpd_classification_class', 'cmpd_pathway'):

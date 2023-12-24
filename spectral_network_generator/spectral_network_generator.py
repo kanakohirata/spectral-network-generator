@@ -61,7 +61,6 @@ def generate_spectral_network(config_obj, _logger=None):
     # make sure which type/version of spec obj you are using
     # input variable config_obj.id is used when multiple versions of config object is used for mainly cross validation
     if config_obj.id > -1:
-        output_folder_name = os.path.basename(os.path.dirname(config_obj.output_folder_path))
         config_obj.output_folder_path = os.path.join(config_obj.output_folder_path,
                                                      f'config_id_{config_obj.id}')
 
@@ -330,7 +329,11 @@ def generate_spectral_network(config_obj, _logger=None):
     create_cluster_frame_for_grouped_spectra(sample_metadata_dir='./spectrum_metadata/grouped/sample',
                                              ref_metadata_dir='./spectrum_metadata/grouped/ref',
                                              output_parent_dir='scores/clustered',
-                                             calculate_inter_ref=False)
+                                             calculate_inner_sample=config_obj.calculate_inner_sample,
+                                             calculate_inter_sample=config_obj.calculate_inter_sample,
+                                             calculate_inter_sample_and_ref=config_obj.calculate_inter_sample_and_reference,
+                                             calculate_inner_ref=config_obj.calculate_inner_reference,
+                                             calculate_inter_ref=config_obj.calculate_inter_reference)
     
     calculate_similarity_score_for_grouped_spectra(
         sample_spectra_parent_dir='./serialized_spectra/grouped/sample',
@@ -341,7 +344,11 @@ def generate_spectral_network(config_obj, _logger=None):
         intensity_convert_mode=config_obj.intensity_convert_mode,
         sample_metadata_dir='./spectrum_metadata/grouped/sample',
         ref_metadata_dir='./spectrum_metadata/grouped/ref',
-        calculate_inter_ref=False
+        calculate_inner_sample=config_obj.calculate_inner_sample,
+        calculate_inter_sample=config_obj.calculate_inter_sample,
+        calculate_inter_sample_and_ref=config_obj.calculate_inter_sample_and_reference,
+        calculate_inner_ref=config_obj.calculate_inner_reference,
+        calculate_inter_ref=config_obj.calculate_inter_reference
     )
 
     cluster_grouped_score_based_on_cluster_id(parent_score_dir='./scores/grouped',
