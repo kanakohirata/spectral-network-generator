@@ -36,6 +36,9 @@ def cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_pa
 
         _arr_to_replace = np.zeros(score_arr[mask_to_replace].shape[0], dtype=score_arr.dtype)
 
+        # Swap keyword_a and keyword_b
+        _arr_to_replace['keyword_a'] = score_arr[mask_to_replace]['keyword_b']
+        _arr_to_replace['keyword_b'] = score_arr[mask_to_replace]['keyword_a']
         # Swap index_a and index_b
         _arr_to_replace['index_a'] = score_arr[mask_to_replace]['index_b']
         _arr_to_replace['index_b'] = score_arr[mask_to_replace]['index_a']
@@ -45,6 +48,9 @@ def cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_pa
         # Swap cluster_name_a and cluster_name_b
         _arr_to_replace['cluster_name_a'] = score_arr[mask_to_replace]['cluster_name_b']
         _arr_to_replace['cluster_name_b'] = score_arr[mask_to_replace]['cluster_name_a']
+        # Swap global_accession_a and global_accession_b
+        _arr_to_replace['global_accession_a'] = score_arr[mask_to_replace]['global_accession_b']
+        _arr_to_replace['global_accession_b'] = score_arr[mask_to_replace]['global_accession_a']
         # Swap matched_peak_idx_a and matched_peak_idx_b
         _arr_to_replace['matched_peak_idx_a'] = score_arr[mask_to_replace]['matched_peak_idx_b']
         _arr_to_replace['matched_peak_idx_b'] = score_arr[mask_to_replace]['matched_peak_idx_a']

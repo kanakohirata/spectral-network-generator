@@ -1,9 +1,12 @@
 __version__ = 'a6'
+from datetime import datetime
+import errno
 import logging
 import pickle
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
+import shutil
 from grouping import grouping_metadata, group_spectra
 from my_filter import (extract_top_x_peak_rich,
                        filter_reference_spectra,
@@ -15,13 +18,14 @@ from my_parser.edge_info_parser import write_edge_info
 from my_parser.matchms_spectrum_parser import (get_serialized_spectra_paths,
                                                initialize_serialize_spectra_file,
                                                load_and_serialize_spectra)
-from my_parser.score_parser import initialize_score_files
+from my_parser.score_parser import initialize_score_files, save_ref_score_file
 from my_parser.spectrum_metadata_parser import (concatenate_npy_metadata_files,
                                                 get_npy_metadata_paths,
                                                 initialize_spectrum_metadata_file,
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra
-from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths
+from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths, reuse_ref_score
+from clustering import clustering_frame
 from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
 from clustering.clustering_score import cluster_grouped_score_based_on_cluster_id
 
@@ -69,6 +73,12 @@ def generate_spectral_network(config_obj, _logger=None):
     else:
         raise ValueError(f'config_obj.id must be >= 0: {config_obj.id}')
 
+    parent_dir_for_calculated_ref_edge = ''
+    if config_obj.input_calculated_ref_score_dir:
+        parent_dir_for_calculated_ref_edge = os.path.join(config_obj.input_calculated_ref_score_dir, f'config_id_{config_obj.id}')
+        if not os.path.isdir(parent_dir_for_calculated_ref_edge):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), parent_dir_for_calculated_ref_edge)
+    
     # create a logger to export a report.
     report = getLogger('report')
     report.setLevel(INFO)
@@ -362,11 +372,28 @@ def generate_spectral_network(config_obj, _logger=None):
                                    output_path='./spectrum_metadata/grouped/all.npy',
                                    export_tsv=True)
 
+    # Reuse reference score ------------------------------------------------------------------------------
+    # Re-assign cluster id to reference score
+    reuse_score_paths_assigned_cluster_id = []
+    if config_obj.input_calculated_ref_score_dir:
+        reuse_score_dirs = get_paths.get_folder_name_vs_path_list(parent_dir_for_calculated_ref_edge)
+        reuse_score_paths = []
+        for _, reuse_score_dir in reuse_score_dirs:
+            reuse_score_paths += get_paths.get_clustered_score_paths(reuse_score_dir)
+            
+        reuse_score_paths = [x[0] for x in reuse_score_paths]
+        reuse_score_paths_assigned_cluster_id = reuse_ref_score.assign_cluster_id(
+            score_paths=reuse_score_paths, metadata_path='./spectrum_metadata/grouped/all.npy')
+    # ----------------------------------------------------------------------------------------------------
+
     # -------
     # Output
     # -------
     # Get directories including clustered scores.
     clustered_score_paths = get_paths.get_all_paths_of_clustered_score()
+    if config_obj.input_calculated_ref_score_dir:
+        clustered_score_paths += reuse_score_paths_assigned_cluster_id
+
     write_edge_info(output_path=edge_info_path,
                     score_paths=clustered_score_paths,
                     metadata_path='./spectrum_metadata/grouped/all.npy',
@@ -374,3 +401,9 @@ def generate_spectral_network(config_obj, _logger=None):
                     minimum_peak_match_to_output=config_obj.minimum_peak_match_to_output)
     
     write_cluster_attribute(output_path=cluster_attribute_path, metadata_path='./spectrum_metadata/grouped/all.npy')
+
+    # Export inner and inter reference score. -----------------------------------------------------------------
+    if config_obj.export_reference_score:
+        output_ref_score_dir_path = os.path.join(config_obj.output_ref_score_dir_path, f'config_id_{config_obj.id}')
+        save_ref_score_file(output_ref_score_dir_path)
+    # ---------------------------------------------------------------------------------------------------------

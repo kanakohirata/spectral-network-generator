@@ -3,6 +3,7 @@ import numpy as np
 import os
 import re
 import shutil
+from utils import get_paths
 
 
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
@@ -140,34 +141,6 @@ def iter_clustered_score_array(dir_path='./scores/clustered_scores', return_path
             yield arr
 
 
-def get_clustered_score_paths(dir_path):
-    """
-    Parameters
-    ----------
-    dir_path : str
-
-    Returns
-    -------
-    list
-        If dir_path includes '0.npy', '1000000.npy', '2000000.npy',
-        the following list will be returned.
-
-        list[('dir_path/0.npy', 0),
-             ('dir_path/1000000.npy', 1000000),
-             ('dir_path/2000000.npy', 2000000)]
-    """
-    score_paths = []
-    for filename in os.listdir(dir_path):
-        path = os.path.join(dir_path, filename)
-        if os.path.isfile(path) and re.match(r'\d+\.npy', filename):
-            idx = int(os.path.splitext(filename)[0])
-            score_paths.append((path, idx))
-
-    score_paths.sort(key=lambda x: x[1])
-
-    return score_paths
-
-
 def iter_grouped_and_clustered_score_array(parent_dir_path='./scores/grouped_and_clustered_scores', grouped_metadata_key='grouped', return_path=True, return_index=True):
     # Get sample score folder
     dir_paths = [os.path.join(parent_dir_path, 'sample')]
@@ -295,6 +268,15 @@ def split_array(arr, row_size):
         yield arr[-remainder:]
     
                 
+def save_ref_score_file(output_dir):
+    ref_clustered_score_dirs = get_paths.get_dirs_of_clustered_score_for_inner_ref()
+    ref_clustered_score_dirs += get_paths.get_dirs_of_clustered_score_for_inter_ref()
 
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
 
+    for ref_clustered_score_dir in ref_clustered_score_dirs:
+        folder_name = os.path.basename(ref_clustered_score_dir)
+        dir_to_copy = os.path.join(output_dir, folder_name)
+        shutil.copytree(ref_clustered_score_dir, dir_to_copy)
 

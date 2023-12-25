@@ -1,5 +1,6 @@
 import configparser
 from copy import deepcopy
+from datetime import datetime
 import errno
 from glob import glob
 import itertools
@@ -35,6 +36,7 @@ class SpecNetGenConfig:
         self.list_sample_filename = []
         self.list_ref_filename = []
         self.list_blank_filename = []
+        self.input_calculated_ref_score_dir = ''
 
         self.list_ref_spec_filename = []
         self.list_ref_spec_path = []
@@ -85,6 +87,9 @@ class SpecNetGenConfig:
         self.output_folder_path = ''
         self.fo_score_vs_chemsim = ''
 
+        self.export_reference_score = False
+        self.output_ref_score_dir_path = ''
+
         self.class_matching_correlation = 0
 
         self.flag_write_log = 0
@@ -120,8 +125,22 @@ def read_config_file(path='./config.ini', _logger=None):
 
     my_config.output_filename = inifile.get('output', 'output_filename')
 
+    export_reference_score = inifile.get('output', 'export_reference_score')
+    if export_reference_score not in ('0', '1'):
+        raise ValueError(f'"export_reference_score" must be 0 or 1: {export_reference_score}')
+    if export_reference_score == '0':
+        my_config.export_reference_score = False
+    else:
+        my_config.export_reference_score = True
+        now = datetime.now()
+        my_config.output_ref_score_dir_path = f"./ref_score_{now.strftime('%Y%m%d%H%M%S')}"
+        if not os.path.isdir(my_config.output_ref_score_dir_path):
+            os.makedirs(my_config.output_ref_score_dir_path)
+
     # ------------------------------
     # [input] section
+
+    # sample files ------------------------------------------------------------------------------------------
     my_config.input_sample_folder_path = inifile.get('input', 'input_sample_folder_path')
     if not os.path.isdir(my_config.input_sample_folder_path):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_sample_folder_path)
@@ -138,6 +157,29 @@ def read_config_file(path='./config.ini', _logger=None):
                 my_config.list_sample_file_path.append(_path)
                 my_config.list_sample_filename.append(os.path.basename(_path))
 
+    # -------------------------------------------------------------------------------------------------------
+
+    # blank files -------------------------------------------------------------------------------------------
+    my_config.input_blank_folder_path = inifile.get('input', 'input_blank_folder_path')
+    if my_config.input_blank_folder_path and not os.path.isdir(my_config.input_blank_folder_path):
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_blank_folder_path)
+
+    _list_input_blank_extension = inifile.get('input', 'input_blank_extension').split(',')
+    _list_input_blank_extension = [_e for _e in _list_input_blank_extension if _e]
+    if not _list_input_blank_extension:
+        _list_input_blank_extension = ['msp', 'mgf', 'json']
+
+    if my_config.input_blank_folder_path:
+        for _ext in _list_input_blank_extension:
+            _ext = _ext.strip()
+            _ext = _ext.lstrip('.')
+            if _ext:
+                for _path in glob(f'{my_config.input_blank_folder_path}/*.{_ext}'):
+                    my_config.list_blank_file_path.append(_path)
+                    my_config.list_blank_filename.append(os.path.basename(_path))
+    # -------------------------------------------------------------------------------------------------------
+
+    # reference files ---------------------------------------------------------------------------------------
     my_config.input_ref_folder_path = inifile.get('input', 'input_ref_folder_path')
     if not os.path.isdir(my_config.input_ref_folder_path):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_ref_folder_path)
@@ -154,24 +196,6 @@ def read_config_file(path='./config.ini', _logger=None):
                 my_config.list_ref_file_path.append(_path)
                 my_config.list_ref_filename.append(os.path.basename(_path))
 
-    my_config.input_blank_folder_path = inifile.get('input', 'input_blank_folder_path')
-    if my_config.input_blank_folder_path and not os.path.isdir(my_config.input_blank_folder_path):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_blank_folder_path)
-
-    _list_input_blank_extension = inifile.get('input', 'input_ref_extension').split(',')
-    _list_input_blank_extension = [_e for _e in _list_input_blank_extension if _e]
-    if not _list_input_blank_extension:
-        _list_input_blank_extension = ['msp', 'mgf', 'json']
-
-    if my_config.input_blank_folder_path:
-        for _ext in _list_input_blank_extension:
-            _ext = _ext.strip()
-            _ext = _ext.lstrip('.')
-            if _ext:
-                for _path in glob(f'{my_config.input_blank_folder_path}/*.{_ext}'):
-                    my_config.list_blank_file_path.append(_path)
-                    my_config.list_blank_filename.append(os.path.basename(_path))
-
     _list_ref_spec_filename = inifile.get('input', 'ref_spec_filename').split(',')
     for _filename in _list_ref_spec_filename:
         _filename = _filename.strip()
@@ -182,8 +206,30 @@ def read_config_file(path='./config.ini', _logger=None):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), _path)
         my_config.list_ref_spec_filename.append(_filename)
         my_config.list_ref_spec_path.append(_path)
+    # -------------------------------------------------------------------------------------------------------
 
-    calculate_inner_sample = inifile.get('input', 'calculate_inner_sample')
+    _list_decoy = inifile.get('input', 'decoy').split(',')
+    my_config.list_decoy = [_decoy.strip() for _decoy in _list_decoy if _decoy.strip()]
+
+    # reuse reference score ---------------------------------------------------------------------------------
+    my_config.input_calculated_ref_score_dir = inifile.get('input', 'input_calculated_ref_score_dir')
+    if my_config.input_calculated_ref_score_dir and not os.path.isdir(my_config.input_calculated_ref_score_dir):
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_calculated_ref_score_dir)
+
+    if my_config.input_calculated_ref_score_dir:
+        reuse_config_path = os.path.join(my_config.input_calculated_ref_score_dir, 'config.ini')
+        if not os.path.isfile(reuse_config_path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), reuse_config_path)
+
+        # !!! Use previous settings. !!!!!!!!!!!!
+        inifile = configparser.SafeConfigParser()
+        inifile.read(reuse_config_path)
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # -------------------------------------------------------------------------------------------------------
+
+    # ------------------------------
+    # [dataset] section
+    calculate_inner_sample = inifile.get('dataset', 'calculate_inner_sample')
     if calculate_inner_sample not in ('0', '1'):
         raise ValueError(f'"calculate_inner_sample" must be 0 or 1: {calculate_inner_sample}')
     if calculate_inner_sample == '0':
@@ -191,7 +237,7 @@ def read_config_file(path='./config.ini', _logger=None):
     else:
         my_config.calculate_inner_sample = True
 
-    calculate_inter_sample = inifile.get('input', 'calculate_inter_sample')
+    calculate_inter_sample = inifile.get('dataset', 'calculate_inter_sample')
     if calculate_inter_sample not in ('0', '1'):
         raise ValueError(f'"calculate_inter_sample" must be 0 or 1: {calculate_inter_sample}')
     if calculate_inter_sample == '0':
@@ -199,7 +245,7 @@ def read_config_file(path='./config.ini', _logger=None):
     else:
         my_config.calculate_inter_sample = True
 
-    calculate_inter_sample_and_reference = inifile.get('input', 'calculate_inter_sample_and_reference')
+    calculate_inter_sample_and_reference = inifile.get('dataset', 'calculate_inter_sample_and_reference')
     if calculate_inter_sample_and_reference not in ('0', '1'):
         raise ValueError(f'"calculate_inter_sample_and_reference" must be 0 or 1: {calculate_inter_sample_and_reference}')
     if calculate_inter_sample_and_reference == '0':
@@ -207,7 +253,7 @@ def read_config_file(path='./config.ini', _logger=None):
     else:
         my_config.calculate_inter_sample_and_reference = True
 
-    calculate_inner_reference = inifile.get('input', 'calculate_inner_reference')
+    calculate_inner_reference = inifile.get('dataset', 'calculate_inner_reference')
     if calculate_inner_reference not in ('0', '1'):
         raise ValueError(f'"calculate_inner_reference" must be 0 or 1: {calculate_inner_reference}')
     if calculate_inner_reference == '0':
@@ -215,7 +261,7 @@ def read_config_file(path='./config.ini', _logger=None):
     else:
         my_config.calculate_inner_reference = True
 
-    calculate_inter_reference = inifile.get('input', 'calculate_inter_reference')
+    calculate_inter_reference = inifile.get('dataset', 'calculate_inter_reference')
     if calculate_inter_reference not in ('0', '1'):
         raise ValueError(f'"calculate_inter_reference" must be 0 or 1: {calculate_inter_reference}')
     if calculate_inter_reference == '0':
@@ -223,20 +269,21 @@ def read_config_file(path='./config.ini', _logger=None):
     else:
         my_config.calculate_inter_reference = True
 
-    _ref_split_category = inifile.get('input', 'ref_split_category')
+    if my_config.input_calculated_ref_score_dir:
+        my_config.calculate_inner_reference = False
+        my_config.calculate_inter_reference = False
+
+    _ref_split_category = inifile.get('dataset', 'ref_split_category')
     if _ref_split_category not in ('', 'cmpd_classification_superclass', 'cmpd_classification_class', 'cmpd_pathway'):
         raise ValueError('"ref_split_category" must be "cmpd_classification_superclass", "cmpd_classification_class" '
                          'or "cmpd_pathway".')
     my_config.ref_split_category = _ref_split_category
 
-    _list_ref_select_keyword = inifile.get('input', 'ref_select_keywords').split(';')
+    _list_ref_select_keyword = inifile.get('dataset', 'ref_select_keywords').split(';')
     my_config.list_ref_select_keyword = [_key.strip() for _key in _list_ref_select_keyword if _key.strip()]
 
-    _list_ref_exclude_keyword = inifile.get('input', 'ref_exclude_keywords').split(';')
+    _list_ref_exclude_keyword = inifile.get('dataset', 'ref_exclude_keywords').split(';')
     my_config.list_ref_exclude_keyword = [_key.strip() for _key in _list_ref_exclude_keyword if _key.strip()]
-
-    _list_decoy = inifile.get('input', 'decoy').split(',')
-    my_config.list_decoy = [_decoy.strip() for _decoy in _list_decoy if _decoy.strip()]
 
     # ------------------------------
     # [filter] section
@@ -392,6 +439,9 @@ def read_config_file(path='./config.ini', _logger=None):
 
     config_filename = os.path.basename(path)
     shutil.copyfile(path, os.path.join(my_config.output_folder_path, config_filename))
+
+    if my_config.export_reference_score:
+        shutil.copyfile(path, os.path.join(my_config.output_ref_score_dir_path, config_filename))
 
     # ----------------------------------------
     # Create combination of config settings

@@ -316,7 +316,7 @@ def write_edge_info(output_path, score_paths, metadata_path, score_threshold, mi
     del metadata_arr
 
     df_meta = df_meta[[
-        'index', 'global_accession', 'accession_number', 'source_filename',
+        'index', 'accession_number', 'source_filename',
         'precursor_mz', 'rt_in_sec', 'title', 'inchi', 'inchikey', 'peaks', 'mz_list',
         'external_compound_unique_id_list', 'pathway_unique_id_list', 'pathway_common_name_list',
         'cmpd_classification_superclass', 'cmpd_classification_class'
@@ -335,7 +335,6 @@ def write_edge_info(output_path, score_paths, metadata_path, score_threshold, mi
         )
 
     df_meta.rename(columns={'index': 'index_b',
-                            'global_accession': 'global_accession_b',
                             'accession_number': 'accession_number_b',
                             'source_filename': 'source_filename_b',
                             'precursor_mz': 'precursor_mz_b',
@@ -367,7 +366,6 @@ def write_edge_info(output_path, score_paths, metadata_path, score_threshold, mi
             # Convert score array to a dataframe, and then merge score and metadata dataframes.
             df = pd.DataFrame.from_records(arr)
             df_meta.rename(columns={'index_b': 'index_a',
-                                    'global_accession_b': 'global_accession_a',
                                     'accession_number_b': 'accession_number_a',
                                     'source_filename_b': 'source_filename_a',
                                     'precursor_mz_b': 'precursor_mz_a',
@@ -386,7 +384,6 @@ def write_edge_info(output_path, score_paths, metadata_path, score_threshold, mi
                            inplace=True)
             df = pd.merge(df, df_meta, on='index_a', how='left')
             df_meta.rename(columns={'index_a': 'index_b',
-                                    'global_accession_a': 'global_accession_b',
                                     'accession_number_a': 'accession_number_b',
                                     'source_filename_a': 'source_filename_b',
                                     'precursor_mz_a': 'precursor_mz_b',

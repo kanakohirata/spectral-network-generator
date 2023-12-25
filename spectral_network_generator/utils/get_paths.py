@@ -1,8 +1,7 @@
 import os
 import pickle
-
+import re
 from clustering import clustering_frame
-from my_parser.score_parser import get_clustered_score_paths
 
 
 def get_specific_ext_paths(dir_path, ext) -> list:
@@ -181,3 +180,31 @@ def get_all_paths_of_clustered_score():
     paths = [path_vs_idx[0] for path_vs_idx in paths]
 
     return paths
+
+
+def get_clustered_score_paths(dir_path):
+    """
+    Parameters
+    ----------
+    dir_path : str
+
+    Returns
+    -------
+    list
+        If dir_path includes '0.npy', '1000000.npy', '2000000.npy',
+        the following list will be returned.
+
+        list[('dir_path/0.npy', 0),
+             ('dir_path/1000000.npy', 1000000),
+             ('dir_path/2000000.npy', 2000000)]
+    """
+    score_paths = []
+    for filename in os.listdir(dir_path):
+        path = os.path.join(dir_path, filename)
+        if os.path.isfile(path) and re.match(r'\d+\.npy', filename):
+            idx = int(os.path.splitext(filename)[0])
+            score_paths.append((path, idx))
+
+    score_paths.sort(key=lambda x: x[1])
+
+    return score_paths

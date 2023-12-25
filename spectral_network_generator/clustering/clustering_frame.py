@@ -269,8 +269,12 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
 
     score_dtype = [
         ('index', 'u8'),
+        ('keyword_a', 'O'),
+        ('keyword_b', 'O'),
         ('index_a', 'u8'),
         ('index_b', 'u8'),
+        ('global_accession_a', 'O'),
+        ('global_accession_b', 'O'),
         ('cluster_id_a', 'u8'),
         ('cluster_id_b', 'u8'),
         ('cluster_name_a', 'O'),
@@ -281,13 +285,17 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
         ('matched_peak_idx_b', 'O')  # list
     ]
 
-    for (cluster_id_a, cluster_name_a), (cluster_id_b, cluster_name_b) in id_combination_list:
+    for (keyword_a, cluster_id_a, cluster_name_a), (keyword_b, cluster_id_b, cluster_name_b) in id_combination_list:
 
         if cluster_id_a <= cluster_id_b:
             clustered_scores.append((
                 combination_idx,  # 'index'
+                keyword_a,  # 'keyword_a'
+                keyword_b,  # 'keyword_b'
                 0,  # 'index_a'
                 0,  # 'index_b'
+                '',  # 'global_accession_a'
+                '',  # 'global_accession_b'
                 cluster_id_a,  # 'cluster_id_a'
                 cluster_id_b,  # 'cluster_id_b'
                 cluster_name_a,  # 'cluster_name_a'
@@ -298,16 +306,20 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
                 []  # 'matched_peak_idx_b'
             ))
         else:
-            # 'cluster_id_a' field should be smaller than 'cluster_id_b'
+            # 'cluster_id_a' field should be smaller than 'cluster_id_b' so that swap them.
             LOGGER.warning('cluster_id_a > cluster_id_b')
             clustered_scores.append((
                 combination_idx,  # 'index'
+                keyword_b,  # 'keyword_a'
+                keyword_a,  # 'keyword_b'
                 0,  # 'index_a'
                 0,  # 'index_b'
-                cluster_id_a,  # 'cluster_id_a'
-                cluster_id_b,  # 'cluster_id_b'
-                cluster_name_a,  # 'cluster_name_a'
-                cluster_name_b,  # 'cluster_name_b'
+                '',  # 'global_accession_a'
+                '',  # 'global_accession_b'
+                cluster_id_b,  # 'cluster_id_a'
+                cluster_id_a,  # 'cluster_id_b'
+                cluster_name_b,  # 'cluster_name_a'
+                cluster_name_a,  # 'cluster_name_b'
                 0.0,  # 'score'
                 0,  # 'matches'
                 [],  # 'matched_peak_idx_a'
@@ -374,8 +386,8 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         metadata_arr['cluster_id'] = np.array(list(range(cluster_id_start, cluster_id_start + len(metadata_arr))))
 
         # Add id_information to id_information_dict_by_dataset
-        id_information = [(_cluster_id, _cluster_name) for _cluster_id, _cluster_name
-                          in zip(metadata_arr['cluster_id'], metadata_arr['cluster_name'])]
+        id_information = [(_keyword, _cluster_id, _cluster_name) for _keyword, _cluster_id, _cluster_name
+                          in zip(metadata_arr['keyword'], metadata_arr['cluster_id'], metadata_arr['cluster_name'])]
         id_information_dict_by_dataset[filename] = id_information
 
         all_cluster_name_list.extend(list(metadata_arr['cluster_name']))
@@ -409,12 +421,14 @@ def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,
         cluster_name_body_df_unique = pd.DataFrame(cluster_name_body_df['cluster_name'].unique(),
                                                    columns=['cluster_name'])
         cluster_name_body_df_unique['cluster_id'] = list(range(cluster_id_start, cluster_id_start + len(cluster_name_body_df_unique)))
+        cluster_name_body_df_unique['keyword'] = metadata_arr[0]['keyword']
         cluster_name_body_df = pd.merge(cluster_name_body_df, cluster_name_body_df_unique, on='cluster_name')
         metadata_arr['cluster_id'] = cluster_name_body_df['cluster_id'].values
 
         # Add id_information to id_information_dict_by_dataset
-        id_information = [(_cluster_id, _cluster_name) for _cluster_id, _cluster_name
-                          in zip(cluster_name_body_df_unique['cluster_id'],
+        id_information = [(_keyword, _cluster_id, _cluster_name) for _keyword, _cluster_id, _cluster_name
+                          in zip(cluster_name_body_df_unique['keyword'],
+                                 cluster_name_body_df_unique['cluster_id'],
                                  cluster_name_body_df_unique['cluster_name'])]
         id_information_dict_by_dataset[filename] = id_information
 

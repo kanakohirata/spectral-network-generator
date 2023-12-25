@@ -420,8 +420,8 @@ def _calculate_similarity_score_for_grouped_spectra(
     metadata_arr_a = metadata_arr_a[np.isin(metadata_arr_a['index'], spectrum_index_arr_a)]
     metadata_arr_b = metadata_arr_b[np.isin(metadata_arr_b['index'], spectrum_index_arr_b)]
 
-    metadata_arr_a = metadata_arr_a[['index', 'cluster_id', 'cluster_name']]
-    metadata_arr_b = metadata_arr_b[['index', 'cluster_id', 'cluster_name']]
+    metadata_arr_a = metadata_arr_a[['keyword', 'index', 'cluster_id', 'cluster_name', 'global_accession']]
+    metadata_arr_b = metadata_arr_b[['keyword', 'index', 'cluster_id', 'cluster_name', 'global_accession']]
     # ---------------------------------------------------------------------------------------------
 
     # Construct score structure ----------------------------------------------------------------
@@ -429,18 +429,22 @@ def _calculate_similarity_score_for_grouped_spectra(
     score_data = list(itertools.product(metadata_arr_a, metadata_arr_b))
     # Combine scores and metadata
     score_data = list(map(lambda x: (
-                                        x[0][0][0], x[0][1][0],  # index_a, index_b
-                                        x[0][0][1], x[0][1][1],  # cluster_id_a, cluster_id_b
-                                        x[0][0][2], x[0][1][2],  # cluster_name_a, cluster_name_b
+                                        x[0][0][0], x[0][1][0],  # keyword_a, keyword_b
+                                        x[0][0][1], x[0][1][1],  # index_a, index_b
+                                        x[0][0][2], x[0][1][2],  # cluster_id_a, cluster_id_b
+                                        x[0][0][3], x[0][1][3],  # cluster_name_a, cluster_name_b
+                                        x[0][0][4], x[0][1][4],  # global_accession_a, global_accession_b
                                         x[1][0], x[1][1],  # score, matches
                                         x[1][2], x[1][3]  # matched_peak_idx_a, matched_peak_idx_b
                                     ),
                           zip(score_data, scores.scores.flatten())))
 
     score_arr = np.array(score_data,
-                         dtype=[('index_a', 'u8'), ('index_b', 'u8'),
+                         dtype=[('keyword_a', 'O'), ('keyword_b', 'O'),
+                                ('index_a', 'u8'), ('index_b', 'u8'),
                                 ('cluster_id_a', 'u8'), ('cluster_id_b', 'u8'),
                                 ('cluster_name_a', 'O'), ('cluster_name_b', 'O'),
+                                ('global_accession_a', 'O'), ('global_accession_b', 'O'),
                                 ('score', 'f8'), ('matches', 'u2'),
                                 ('matched_peak_idx_a', 'O'), ('matched_peak_idx_b', 'O')])
     
