@@ -56,7 +56,12 @@ Acceptable columns:
    
    The project name "sng-pub" can be changed to any name you prefer.
 
-5. Accessing a container
+4. Starting the container
+   ```
+   docker compose -p sng-pub start python
+   ```
+
+5. Accessing the container
 
    ```
    docker compose -p sng-pub exec python /bin/bash
