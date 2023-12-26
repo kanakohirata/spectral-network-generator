@@ -37,6 +37,7 @@ class SpecNetGenConfig:
         self.list_ref_filename = []
         self.list_blank_filename = []
         self.input_calculated_ref_score_dir = ''
+        self.reuse_serialized_reference_spectra = False
 
         self.list_ref_spec_filename = []
         self.list_ref_spec_path = []
@@ -89,6 +90,7 @@ class SpecNetGenConfig:
 
         self.export_reference_score = False
         self.output_ref_score_dir_path = ''
+        self.export_serialized_reference_spectra = False
 
         self.class_matching_correlation = 0
 
@@ -100,6 +102,8 @@ class SpecNetGenConfig:
         self.compound_table_folder_path = ''
         self.compound_table_paths = []
         self.external_file_filter_mode = 0
+        self.metacyc_cmpd_dat_path = ''
+        self.metacyc_pathway_dat_path = ''
 
         # Parameters not defined by a user
         self.is_clustering_required = False
@@ -132,6 +136,18 @@ def read_config_file(path='./config.ini', _logger=None):
         my_config.export_reference_score = False
     else:
         my_config.export_reference_score = True
+
+    export_serialized_reference_spectra = inifile.get('output', 'export_serialized_reference_spectra')
+    if export_serialized_reference_spectra not in ('0', '1'):
+        raise ValueError(f'"export_serialized_reference_spectra" must be 0 or 1: {export_serialized_reference_spectra}')
+    if export_serialized_reference_spectra == '0':
+        my_config.export_serialized_reference_spectra = False
+    else:
+        my_config.export_serialized_reference_spectra = True
+        my_config.export_reference_score = True
+
+    # Make a folder to export reference score files.
+    if my_config.export_reference_score:
         now = datetime.now()
         my_config.output_ref_score_dir_path = f"./ref_score_{now.strftime('%Y%m%d%H%M%S')}"
         if not os.path.isdir(my_config.output_ref_score_dir_path):
@@ -213,14 +229,24 @@ def read_config_file(path='./config.ini', _logger=None):
 
     # reuse reference score ---------------------------------------------------------------------------------
     my_config.input_calculated_ref_score_dir = inifile.get('input', 'input_calculated_ref_score_dir')
-    if my_config.input_calculated_ref_score_dir and not os.path.isdir(my_config.input_calculated_ref_score_dir):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.input_calculated_ref_score_dir)
-
+    reuse_config_path = ''
     if my_config.input_calculated_ref_score_dir:
+        # Check whether config.ini exists in input_calculated_ref_score_dir.
         reuse_config_path = os.path.join(my_config.input_calculated_ref_score_dir, 'config.ini')
         if not os.path.isfile(reuse_config_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), reuse_config_path)
 
+    # reuse serialized reference spectra
+    reuse_serialized_reference_spectra = inifile.get('input', 'reuse_serialized_reference_spectra')
+    if reuse_serialized_reference_spectra == '0':
+        my_config.reuse_serialized_reference_spectra = False
+    else:
+        my_config.reuse_serialized_reference_spectra = True
+
+        if not my_config.input_calculated_ref_score_dir:
+            raise ValueError('Set a path to "input_calculated_ref_score_dir"')
+
+    if my_config.input_calculated_ref_score_dir:
         # !!! Use previous settings. !!!!!!!!!!!!
         inifile = configparser.SafeConfigParser()
         inifile.read(reuse_config_path)
@@ -364,16 +390,16 @@ def read_config_file(path='./config.ini', _logger=None):
             raise ValueError(f'deisotope_mz_tol must be larger than or equal to 0: {_n}')
 
     _list_top_n_binned_ranges_top_n_number = inifile.get('spectrum processing',
-                                                       'topN_binned_ranges_topN_number').split(',')
+                                                         'topN_binned_ranges_topN_number').split(',')
     list_top_n_binned_ranges_top_n_number = [int(_value.strip()) for _value in _list_top_n_binned_ranges_top_n_number
-                                           if _value.strip()]
+                                             if _value.strip()]
     for _n in list_top_n_binned_ranges_top_n_number:
         if _n <= 0:
             raise ValueError(f'topN_binned_ranges_topN_number must be larger than 0: {_n}')
 
     _list_top_n_binned_ranges_bin_size = inifile.get('spectrum processing', 'topN_binned_ranges_bin_size').split(',')
     list_top_n_binned_ranges_bin_size = [float(_value.strip()) for _value in _list_top_n_binned_ranges_bin_size
-                                        if _value.strip()]
+                                         if _value.strip()]
     for _n in list_top_n_binned_ranges_bin_size:
         if _n <= 0 and _n != -1:
             raise ValueError(f'topN_binned_ranges_bin_size must be larger than 0 or equal to -1: {_n}')
@@ -420,7 +446,7 @@ def read_config_file(path='./config.ini', _logger=None):
     my_config.filename_metacyc_cmpd_dat = inifile.get('external info files', 'metacyc_compound_dat')
     if my_config.filename_metacyc_cmpd_dat:
         my_config.metacyc_cmpd_dat_path = os.path.join(my_config.compound_table_folder_path,
-                                                    my_config.filename_metacyc_cmpd_dat)
+                                                       my_config.filename_metacyc_cmpd_dat)
         if not os.path.isfile(my_config.metacyc_cmpd_dat_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_cmpd_dat_path)
     else:
@@ -429,7 +455,7 @@ def read_config_file(path='./config.ini', _logger=None):
     my_config.filename_metacyc_pathway_dat = inifile.get('external info files', 'metacyc_pathway_dat')
     if my_config.filename_metacyc_pathway_dat:
         my_config.metacyc_pathway_dat_path = os.path.join(my_config.compound_table_folder_path,
-                                                        my_config.filename_metacyc_pathway_dat)
+                                                          my_config.filename_metacyc_pathway_dat)
         if not os.path.isfile(my_config.metacyc_pathway_dat_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), my_config.metacyc_pathway_dat_path)
     else:

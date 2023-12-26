@@ -340,6 +340,7 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir
         pickle.dump(_spectra, f)
         f.flush()
 
+    global_index -= 1
     return global_index
 
 

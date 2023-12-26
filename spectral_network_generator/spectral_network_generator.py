@@ -5,6 +5,8 @@ import pickle
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
+import shutil
+import config
 from grouping import grouping_metadata, group_spectra
 from my_filter import (extract_top_x_peak_rich,
                        filter_reference_spectra,
@@ -22,7 +24,8 @@ from my_parser.spectrum_metadata_parser import (concatenate_npy_metadata_files,
                                                 initialize_spectrum_metadata_file,
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra
-from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths, reuse_ref_score
+from utils import (add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths,
+                   reuse_ref_score, reuse_ref_spectra)
 from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
 from clustering.clustering_score import cluster_grouped_score_based_on_cluster_id
 
@@ -39,7 +42,7 @@ LOGGER.propagate = False
 H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
-def generate_spectral_network(config_obj, _logger=None):
+def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None):
     if isinstance(_logger, logging.Logger):
         logger = _logger
     else:
@@ -70,11 +73,23 @@ def generate_spectral_network(config_obj, _logger=None):
     else:
         raise ValueError(f'config_obj.id must be >= 0: {config_obj.id}')
 
-    parent_dir_for_calculated_ref_edge = ''
+    # Check whether reuse score folder exists. -----------------------------------------------------
+    parent_dir_of_calculated_ref_score = ''
     if config_obj.input_calculated_ref_score_dir:
-        parent_dir_for_calculated_ref_edge = os.path.join(config_obj.input_calculated_ref_score_dir, f'config_id_{config_obj.id}')
-        if not os.path.isdir(parent_dir_for_calculated_ref_edge):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), parent_dir_for_calculated_ref_edge)
+        parent_dir_of_calculated_ref_score = os.path.join(config_obj.input_calculated_ref_score_dir,
+                                                          f'config_id_{config_obj.id}/score')
+        if not os.path.isdir(parent_dir_of_calculated_ref_score):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), parent_dir_of_calculated_ref_score)
+    # ----------------------------------------------------------------------------------------------
+
+    # Check whether reuse spectra folder exists. ---------------------------------------------------
+    parent_dir_of_serialized_ref_spectra = ''
+    if config_obj.reuse_serialized_reference_spectra:
+        parent_dir_of_serialized_ref_spectra = os.path.join(config_obj.input_calculated_ref_score_dir,
+                                                            f'config_id_{config_obj.id}/spectra')
+        if not os.path.isdir(parent_dir_of_serialized_ref_spectra):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), parent_dir_of_serialized_ref_spectra)
+    # ----------------------------------------------------------------------------------------------
     
     # create a logger to export a report.
     report = getLogger('report')
@@ -136,31 +151,48 @@ def generate_spectral_network(config_obj, _logger=None):
         spectrum_index += 1
 
     # Read and serialize reference spectra. --------------------------------------------------------------
-    for _idx, _path in enumerate(config_obj.list_ref_file_path):
-        _filename = os.path.basename(_path)
-        source_filename_list.append(_filename)
-        source_filename_vs_tag_id[_filename] = f'ref_{_idx}'
+    if config_obj.reuse_serialized_reference_spectra:
+        # Initialize config_obj.list_ref_file_path and config_obj.list_ref_filename
+        config_obj.list_ref_file_path = []
+        config_obj.list_ref_filename = []
 
-        # Directory to export serialized spectra
-        _serialized_spectra_dir = f'./serialized_spectra/raw/{source_filename_vs_tag_id[_filename]}'
-        source_filename_vs_serialized_spectra_dir[_filename] = _serialized_spectra_dir
+        # Reuse reference spectra.
+        spectra_dirs = get_paths.get_folder_name_vs_path_list(parent_dir_of_serialized_ref_spectra)
+        for _, spectra_dir in spectra_dirs:
+            _filename, _tag_id, spectrum_index = \
+                reuse_ref_spectra.assign_spectrum_index(spectra_dir=spectra_dir, global_index_start=spectrum_index)
 
-        # Whether to introduce mass shift
-        _is_random_mass_shift_enabled = False
-        if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
-            _is_random_mass_shift_enabled = True
+            config_obj.list_ref_filename.append(_filename)
+            source_filename_list.append(_filename)
+            source_filename_vs_tag_id[_filename] = _tag_id
+            source_filename_vs_serialized_spectra_dir[_filename] = spectra_dir
+            spectrum_index += 1
+    else:
+        for _idx, _path in enumerate(config_obj.list_ref_file_path):
+            _filename = os.path.basename(_path)
+            source_filename_list.append(_filename)
+            source_filename_vs_tag_id[_filename] = f'ref_{_idx}'
 
-        spectrum_index = load_and_serialize_spectra(
-            _path, 'ref', _serialized_spectra_dir, spectrum_index,
-            intensity_threshold=config_obj.remove_low_intensity_peaks,
-            is_introduce_random_mass_shift=_is_random_mass_shift_enabled,
-            deisotope_int_ratio=config_obj.deisotope_int_ratio,
-            deisotope_mz_tol=config_obj.deisotope_mz_tol,
-            binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
-            binning_range=config_obj.top_n_binned_ranges_bin_size,
-            matching_top_n_input=config_obj.matching_top_n_input)
+            # Directory to export serialized spectra
+            _serialized_spectra_dir = f'./serialized_spectra/raw/{source_filename_vs_tag_id[_filename]}'
+            source_filename_vs_serialized_spectra_dir[_filename] = _serialized_spectra_dir
 
-        spectrum_index += 1
+            # Whether to introduce mass shift
+            _is_random_mass_shift_enabled = False
+            if _filename in config_obj.list_decoy or 'all' in config_obj.list_decoy:
+                _is_random_mass_shift_enabled = True
+
+            spectrum_index = load_and_serialize_spectra(
+                _path, 'ref', _serialized_spectra_dir, spectrum_index,
+                intensity_threshold=config_obj.remove_low_intensity_peaks,
+                is_introduce_random_mass_shift=_is_random_mass_shift_enabled,
+                deisotope_int_ratio=config_obj.deisotope_int_ratio,
+                deisotope_mz_tol=config_obj.deisotope_mz_tol,
+                binning_top_n=config_obj.top_n_binned_ranges_top_n_number,
+                binning_range=config_obj.top_n_binned_ranges_bin_size,
+                matching_top_n_input=config_obj.matching_top_n_input)
+
+            spectrum_index += 1
 
     # Read and serialize blank spectra. --------------------------------------------------------------
     for _idx, _path in enumerate(config_obj.list_blank_file_path):
@@ -371,7 +403,7 @@ def generate_spectral_network(config_obj, _logger=None):
     # Re-assign cluster id to reference score
     reuse_score_paths_assigned_cluster_id = []
     if config_obj.input_calculated_ref_score_dir:
-        reuse_score_dirs = get_paths.get_folder_name_vs_path_list(parent_dir_for_calculated_ref_edge)
+        reuse_score_dirs = get_paths.get_folder_name_vs_path_list(parent_dir_of_calculated_ref_score)
         reuse_score_paths = []
         for _, reuse_score_dir in reuse_score_dirs:
             reuse_score_paths += get_paths.get_clustered_score_paths(reuse_score_dir)
@@ -399,6 +431,17 @@ def generate_spectral_network(config_obj, _logger=None):
 
     # Export inner and inter reference score. -----------------------------------------------------------------
     if config_obj.export_reference_score:
-        output_ref_score_dir_path = os.path.join(config_obj.output_ref_score_dir_path, f'config_id_{config_obj.id}')
+        output_ref_score_dir_path = os.path.join(config_obj.output_ref_score_dir_path,
+                                                 f'config_id_{config_obj.id}/score')
         save_ref_score_file(output_ref_score_dir_path)
+    # ---------------------------------------------------------------------------------------------------------
+
+    # Export serialized reference spectra ---------------------------------------------------------------------
+    if config_obj.export_serialized_reference_spectra:
+        output_ref_spectra_dir_path = os.path.join(config_obj.output_ref_score_dir_path,
+                                                   f'config_id_{config_obj.id}/spectra')
+        for _filename in config_obj.list_ref_filename:
+            _serialized_spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
+            dir_to_copy = os.path.join(output_ref_spectra_dir_path, os.path.basename(_serialized_spectra_dir))
+            shutil.copytree(_serialized_spectra_dir, dir_to_copy)
     # ---------------------------------------------------------------------------------------------------------
