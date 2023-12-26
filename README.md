@@ -78,4 +78,33 @@ Acceptable columns:
 exit
 docker compose -p sng-pub stop python
 ```
- 
+
+## Options
+You can set options by changing the config.ini file.
+
+### \[filter] section
+Filtering spectra
+- **authors**
+  Collect reference spectra created by specified authors.
+- **name_key_characters_to_remove**
+  Remove reference spectra whose name (mostly compound name) contains name_key_characters_to_remove.
+- **instrument_type**
+  Collect reference spectra obtained by specified instrument type.
+- **ion_mod**
+  Collect reference spectra of specified ion mode.
+- **precursor_type**
+  Collect reference spectra of specified precursor type.
+- **ionization**
+  Collect reference spectra of specified ionization mode: ESI, APCI, etc.
+- **fragmentation_type**
+  Collect reference spectra obtained by specified fragmentation type (CID or HCD).
+- **min_number_of_peaks**
+  Remove reference spectra if the number of peaks is less than min_number_of_peaks.
+- **path_of_compound_dat_for_filter**
+  Collect reference spectra of compounds contained in the specified MetaCyc dat files.
+- **remove_spec_wo_prec_mz**
+  Remove spectra with no precursor m/z
+- **filename_avoid_filter**
+  Files that you do not want to apply filers.
+- **num_top_X_peak_rich**
+  Collect the top N spectra with the highest number of product ions.
