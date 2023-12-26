@@ -84,27 +84,47 @@ You can set options by changing the config.ini file.
 
 ### \[filter] section
 Filtering spectra
-- **authors**
+- **authors**  
   Collect reference spectra created by specified authors.
-- **name_key_characters_to_remove**
+- **name_key_characters_to_remove**  
   Remove reference spectra whose name (mostly compound name) contains name_key_characters_to_remove.
-- **instrument_type**
+- **instrument_type**  
   Collect reference spectra obtained by specified instrument type.
-- **ion_mod**
+- **ion_mod**  
   Collect reference spectra of specified ion mode.
-- **precursor_type**
+- **precursor_type**  
   Collect reference spectra of specified precursor type.
-- **ionization**
+- **ionization**  
   Collect reference spectra of specified ionization mode: ESI, APCI, etc.
-- **fragmentation_type**
+- **fragmentation_type**  
   Collect reference spectra obtained by specified fragmentation type (CID or HCD).
-- **min_number_of_peaks**
+- **min_number_of_peaks**  
   Remove reference spectra if the number of peaks is less than min_number_of_peaks.
-- **path_of_compound_dat_for_filter**
+- **path_of_compound_dat_for_filter**  
   Collect reference spectra of compounds contained in the specified MetaCyc dat files.
-- **remove_spec_wo_prec_mz**
+- **remove_spec_wo_prec_mz**  
   Remove spectra with no precursor m/z
-- **filename_avoid_filter**
+- **filename_avoid_filter**  
   Files that you do not want to apply filers.
-- **num_top_X_peak_rich**
+- **num_top_X_peak_rich**  
   Collect the top N spectra with the highest number of product ions.
+
+### \[spectrum processing] section
+- **mz_tol_to_remove_blan**  
+  m/z tolerance to remove blank spectra from sample spectra.
+- **rt_tol_to_remove_blank**  
+  retention time tolerance in seconds to remove blank spectra from sample spectra.
+- **remove_low_intensity_peaks**  
+  Lower threshold for relative peak intensity. Maximum is 1.
+- **deisotope_int_ratio**  
+  Intensity ratio to remove isotope.
+  If it is 3, isotope whose intensity is less than 1/3 of monoisotope will be removed.
+- **deisotope_mz_tol**  
+  m/z tolerance to remove isotope.
+- **topN_binned_ranges_topN_number, topN_binned_ranges_bin_size**  
+  If you want to keep 2 most intense peaks with bins of 100 m/z (0 - 100 m/z, 100 - 200 m/z, ...), set topN_binned_ranges_topN_number = 2, topN_binned_ranges_bin_size = 100
+- **intensity_convert_mode**  
+  Convert peak intensity after normalization of intensity.
+  - 0 : do nothing
+  - 2: log (1+x) (preventing negative value). intensity 0.1 will be  0.095310, intensity 1 will be 0.69314
+  - 3 : square root
