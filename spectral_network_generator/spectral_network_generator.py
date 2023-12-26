@@ -317,8 +317,7 @@ def generate_spectral_network(config_obj, _logger=None):
         _spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         group_spectra(spectra_dir=_spectra_dir,
                       metadata_dir='./spectrum_metadata/grouped/sample',
-                      output_parent_dir='./serialized_spectra/grouped/sample',
-                      folder_name_prefix='sample_dataset_')
+                      output_parent_dir='./serialized_spectra/grouped/sample')
     # -----------------------------------------------------------------------------
 
     # group and serialize reference spectra. --------------------------------------
@@ -326,8 +325,7 @@ def generate_spectral_network(config_obj, _logger=None):
         _spectra_dir = source_filename_vs_serialized_spectra_dir[_filename]
         group_spectra(spectra_dir=_spectra_dir,
                       metadata_dir='./spectrum_metadata/grouped/ref',
-                      output_parent_dir='./serialized_spectra/grouped/ref',
-                      folder_name_prefix='ref_dataset_')
+                      output_parent_dir='./serialized_spectra/grouped/ref')
     # -----------------------------------------------------------------------------
 
     # -------------------------------

@@ -7,9 +7,12 @@ import pickle
 SAMPLE_DATASET_KEYWORDS_PATH = './__sample_dataset_keywords.pickle'
 REF_DATASET_KEYWORDS_PATH = './__ref_dataset_keywords.pickle'
 
+PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT = './__sample_dataset_keyword_vs_label_dict.pickle'
+PATH_OF_REF_DATASET_KEYWORDS_VS_LABEL_DICT = './__ref_dataset_keyword_vs_label_dict.pickle'
+
 
 def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
-                            output_filename_prefix='sample_dataset_', export_tsv=False):
+                            dataset_label_prefix='sample_dataset_', export_tsv=False):
     """
 
     Parameters
@@ -18,7 +21,8 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
     output_dir : str
     split_category :str
         'tag' or 'source_filename'
-    output_filename_prefix : str
+    dataset_label_prefix : str
+        Dataset label is dataset_label_prefix + integer index and is used as filename of grouped metadata file.
     export_tsv : bool
 
     Returns
@@ -28,10 +32,17 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
     if split_category not in ('tag', 'source_filename'):
         raise ValueError('Unacceptable split key.')
 
+    # Load dataset_keyword_list
     dataset_keyword_list = []
     if os.path.isfile(SAMPLE_DATASET_KEYWORDS_PATH):
         with open(SAMPLE_DATASET_KEYWORDS_PATH, 'rb') as f:
             dataset_keyword_list = pickle.load(f)
+
+    # Load dataset_keyword_vs_label_dict
+    dataset_keyword_vs_label_dict = {}
+    if os.path.isfile(PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT):
+        with open(PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT, 'rb') as f:
+            dataset_keyword_vs_label_dict = pickle.load(f)
 
     # Make the output folder if it does not exist.
     if not os.path.isdir(output_dir):
@@ -47,9 +58,12 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
 
         if keyword not in dataset_keyword_list:
             dataset_keyword_list.append(keyword)
+            _idx = dataset_keyword_list.index(keyword)
+            _label = f'{dataset_label_prefix}{_idx}'
+            dataset_keyword_vs_label_dict[keyword] = _label
 
-        dataset_idx = dataset_keyword_list.index(keyword)
-        output_filename = f'{output_filename_prefix}{dataset_idx}.npy'
+        dataset_label = dataset_keyword_vs_label_dict[keyword]
+        output_filename = f'{dataset_label}.npy'
         output_path = os.path.join(output_dir, output_filename)
 
         # Add dataset_arr to already existing dataset array.
@@ -70,9 +84,13 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
         pickle.dump(dataset_keyword_list, f)
         f.flush()
 
+    with open(PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT, 'wb') as f:
+        pickle.dump(dataset_keyword_vs_label_dict, f)
+        f.flush()
+
 
 def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
-                               output_filename_prefix='ref_dataset_', export_tsv=False):
+                               dataset_label_prefix='ref_dataset_', export_tsv=False):
     """
 
     Parameters
@@ -81,7 +99,7 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
     output_dir : str
     split_category : str
         'tag', 'source_filename', 'cmpd_classification_superclass', 'cmpd_classification_class' or 'cmpd_pathway'
-    output_filename_prefix : str
+    dataset_label_prefix : str
     export_tsv : bool
 
     Returns
@@ -92,10 +110,17 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
                               'cmpd_pathway'):
         raise ValueError('Unacceptable split key.')
 
+    # Load dataset_keyword_list
     dataset_keyword_list = []
     if os.path.isfile(REF_DATASET_KEYWORDS_PATH):
         with open(REF_DATASET_KEYWORDS_PATH, 'rb') as f:
             dataset_keyword_list = pickle.load(f)
+
+    # Load dataset_keyword_vs_label_dict
+    dataset_keyword_vs_label_dict = {}
+    if os.path.isfile(PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT):
+        with open(PATH_OF_SAMPLE_DATASET_KEYWORDS_VS_LABEL_DICT, 'rb') as f:
+            dataset_keyword_vs_label_dict = pickle.load(f)
 
     # Make the output folder if it does not exist.
     if not os.path.isdir(output_dir):
@@ -136,9 +161,12 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
 
         if keyword not in dataset_keyword_list:
             dataset_keyword_list.append(keyword)
+            _idx = dataset_keyword_list.index(keyword)
+            _label = f'{dataset_label_prefix}{_idx}'
+            dataset_keyword_vs_label_dict[keyword] = _label
 
-        dataset_idx = dataset_keyword_list.index(keyword)
-        output_filename = f'{output_filename_prefix}{dataset_idx}.npy'
+        dataset_label = dataset_keyword_vs_label_dict[keyword]
+        output_filename = f'{dataset_label}.npy'
         output_path = os.path.join(output_dir, output_filename)
 
         # Add dataset_arr to already existing dataset array.
@@ -157,4 +185,8 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
 
     with open(SAMPLE_DATASET_KEYWORDS_PATH, 'wb') as f:
         pickle.dump(dataset_keyword_list, f)
+        f.flush()
+
+    with open(PATH_OF_REF_DATASET_KEYWORDS_VS_LABEL_DICT, 'wb') as f:
+        pickle.dump(dataset_keyword_vs_label_dict, f)
         f.flush()

@@ -2,6 +2,7 @@ from logging import DEBUG, Formatter, getLogger, StreamHandler
 import numpy as np
 import os
 import pickle
+from . import grouping_metadata
 from my_parser.matchms_spectrum_parser import get_serialized_spectra_paths
 from my_parser.spectrum_metadata_parser import get_npy_metadata_paths
 
@@ -15,7 +16,7 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def group_spectra(spectra_dir, metadata_dir, output_parent_dir, folder_name_prefix):
+def group_spectra(spectra_dir, metadata_dir, output_parent_dir):
     LOGGER.info(f'Group and serialized spectra. ({spectra_dir})')
     length_to_export = 1000
 
@@ -31,8 +32,11 @@ def group_spectra(spectra_dir, metadata_dir, output_parent_dir, folder_name_pref
         for metadata_path, metadata_idx in metadata_path_vs_index_list:
             metadata_arr = np.load(metadata_path, allow_pickle=True)
             spectra_index_arr = metadata_arr['index']
+
+            # Get dataset label
+            dataset_label = os.path.splitext(os.path.basename(metadata_path))[0]
             
-            output_folder_name = f'{folder_name_prefix}{metadata_idx}'
+            output_folder_name = dataset_label
             output_dir = os.path.join(output_parent_dir, output_folder_name)
             # Make the output folder if it does not exist.
             if not os.path.isdir(output_dir):
