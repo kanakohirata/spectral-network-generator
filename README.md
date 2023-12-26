@@ -82,6 +82,38 @@ docker compose -p sng-pub stop python
 ## Options
 You can set options by changing the config.ini file.
 
+### \[dataset] section
+- **sample_split_category**  
+  Category by which sample data is split to datasets: tag or source_filename are acceptable.
+  - tag: data is not split.
+  - source_filename: data is split for each source file.
+
+- **ref_split_category**  
+  Category by which reference data is split to datasets: cmpd_classification_superclass, cmpd_classification_class or cmpd_pathway are acceptable.
+  - cmpd_classification_superclass: reference spectra will be split by "Superclass" ([ClassyFire](http://classyfire.wishartlab.com/))
+  - cmpd_classification_class: split by "Class"
+  - cmpd_pathway: split by biological pathway ID
+
+- **calculate_inner_sample**
+- **calculate_inter_sample**
+- **calculate_inter_sample_and_reference**
+- **calculate_inner_reference**
+- **calculate_inter_reference**  
+  Combination of datasets for which you want to calculate a similarity score.
+  - calculate_inner_sample: calculate scores within a sample dataset.
+  - calculate_inter_sample: calculate scores within two different sample datasets.
+  - calculate_inter_sample_and_reference: calculate scores within a sample and reference datasets.
+  - calculate_inner_reference: calculate scores within a reference dataset.
+  - calculate_inter_reference: calculate scores within two different reference datasets.
+
+- **ref_select_keyword**  
+  Reference dataset that you want to use.
+  If ref_split_category is cmpd_classification_superclass and ref_select_keywords is Benzenoids, dataset of Benzenoids will be used to generata a network.
+
+- **ref_exclude_keywords**
+  Reference dataset that you want to exclude.
+  If ref_split_category is cmpd_classification_superclass and ref_select_keywords is Benzenoids, dataset of Benzenoids will be excluded.
+
 ### \[filter] section
 Filtering spectra
 - **authors**  
@@ -128,3 +160,20 @@ Filtering spectra
   - 0 : do nothing
   - 2: log (1+x) (preventing negative value). intensity 0.1 will be  0.095310, intensity 1 will be 0.69314
   - 3 : square root
+
+### \[peak matching related] section
+- **spec_matching_mode**  
+  Method for spectral similarity calculation
+  - 1: CosineGreedy (https://github.com/matchms/matchms/blob/master/matchms/similarity/CosineGreedy.py)
+  - 2: ModifiedCosine (https://github.com/matchms/matchms/blob/master/matchms/similarity/ModifiedCosine.py)
+- **mz_tol**  
+  m/z tolerance for matching peaks.
+- **matching_top_N_input**  
+  Maximum number of product ion peaks to retain. If number of peaks > matching_top_N_input, low intensity peaks are removed.
+
+### \[threshold] section
+- **score_threshold**  
+  Lower threshold for spectral similarity score to output. maximum is 1.
+- **minimum_peak_match_to_output**  
+  Score with number of matched peak is equal to or more than minimum_peak_match_to_output will be exported.
+  
