@@ -1,6 +1,5 @@
-import os.path
-
 import numpy as np
+import os
 import pandas as pd
 
 
@@ -61,6 +60,3 @@ def assign_cluster_id(score_paths, metadata_path):
         assigned_score_paths.append(output_path)
 
     return assigned_score_paths
-
-
-

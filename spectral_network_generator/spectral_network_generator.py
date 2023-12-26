@@ -1,12 +1,10 @@
 __version__ = 'a6'
-from datetime import datetime
 import errno
 import logging
 import pickle
 from logging import DEBUG, FileHandler, Formatter, getLogger, INFO, StreamHandler
 import h5py
 import os
-import shutil
 from grouping import grouping_metadata, group_spectra
 from my_filter import (extract_top_x_peak_rich,
                        filter_reference_spectra,
@@ -25,7 +23,6 @@ from my_parser.spectrum_metadata_parser import (concatenate_npy_metadata_files,
                                                 write_metadata)
 from score.score import calculate_similarity_score_for_grouped_spectra
 from utils import add_compound_info, add_metacyc_compound_info, check_filtered_metadata, get_paths, reuse_ref_score
-from clustering import clustering_frame
 from clustering.clustering_frame import create_cluster_frame_for_grouped_spectra
 from clustering.clustering_score import cluster_grouped_score_based_on_cluster_id
 

@@ -8,10 +8,6 @@ SAMPLE_DATASET_KEYWORDS_PATH = './__sample_dataset_keywords.pickle'
 REF_DATASET_KEYWORDS_PATH = './__ref_dataset_keywords.pickle'
 
 
-def _add_dataset_keyword():
-    pass
-
-
 def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
                             output_filename_prefix='sample_dataset_', export_tsv=False):
     """

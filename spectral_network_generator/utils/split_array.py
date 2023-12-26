@@ -1,6 +1,3 @@
-from numpy import ndarray
-
-
 def split_array(arr, row_size):
     """
     Parameters

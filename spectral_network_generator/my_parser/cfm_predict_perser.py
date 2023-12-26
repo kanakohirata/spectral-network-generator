@@ -142,7 +142,4 @@ def _parse_metadata(line:str, data:dict):
     
     elif line.startswith('InChiKey='):
         data['InChIKey'] = line.replace('InChiKey=', '')
-    
 
-if __name__ == '__main__':
-    convert_cfm_to_json('../input/cfm_predict')
