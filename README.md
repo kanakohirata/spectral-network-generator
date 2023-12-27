@@ -100,11 +100,11 @@ You can set options by changing the config.ini file.
 - **calculate_inner_reference**
 - **calculate_inter_reference**  
   Combination of datasets for which you want to calculate a similarity score.
-  - calculate_inner_sample: calculate scores within a sample dataset.
-  - calculate_inter_sample: calculate scores within two different sample datasets.
-  - calculate_inter_sample_and_reference: calculate scores within a sample and reference datasets.
-  - calculate_inner_reference: calculate scores within a reference dataset.
-  - calculate_inter_reference: calculate scores within two different reference datasets.
+  - calculate_inner_sample: Whether or not to calculate scores within a sample dataset.
+  - calculate_inter_sample: Whether or not to calculate scores within two different sample datasets.
+  - calculate_inter_sample_and_reference: Whether or not to calculate scores within a sample and reference datasets.
+  - calculate_inner_reference: Whether or not to calculate scores within a reference dataset.
+  - calculate_inter_reference: Whether or not to calculate scores within two different reference datasets.
 
 - **ref_select_keyword**  
   Reference dataset that you want to use.
@@ -157,9 +157,9 @@ Filtering spectra
   If you want to keep 2 most intense peaks with bins of 100 m/z (0 - 100 m/z, 100 - 200 m/z, ...), set topN_binned_ranges_topN_number = 2, topN_binned_ranges_bin_size = 100
 - **intensity_convert_mode**  
   Convert peak intensity after normalization of intensity.
-  - 0 : do nothing
+  - 0: do nothing
   - 2: log (1+x) (preventing negative value). intensity 0.1 will be  0.095310, intensity 1 will be 0.69314
-  - 3 : square root
+  - 3: square root
 
 ### \[peak matching related] section
 - **spec_matching_mode**  
