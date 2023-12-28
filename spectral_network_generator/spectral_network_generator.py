@@ -259,6 +259,9 @@ def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None)
 
             write_metadata('./spectrum_metadata/raw/blank_metadata.npy', _spectra, export_tsv=True)
 
+    # ------------------------
+    # Filter sample spectra
+    # ------------------------
     # Remove common contaminants in sample data by subtracting blank elements ---------------
     remove_blank_spectra_from_sample_spectra(
         './spectrum_metadata/raw/blank_metadata.npy', './spectrum_metadata/raw/sample_metadata.npy',
@@ -266,6 +269,7 @@ def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None)
         mz_tolerance=config_obj.mz_tol_to_remove_blank, rt_tolerance=config_obj.rt_tol_to_remove_blank,
         export_tsv=True)
 
+    # Remove spectra with no precursor m/z from sample spectra. ---------------
     if config_obj.spec_matching_mode == 2:
         remove_sample_spectra_with_no_precursor_mz(
             sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
@@ -275,6 +279,15 @@ def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None)
     # Check whether there are remaining spectra after filtering.
     if not check_filtered_metadata('./spectrum_metadata/filtered/sample_metadata.npy'):
         raise ValueError('There is no spectrum after filtering.')
+
+    # Extract top X peak rich spectra
+    if config_obj.num_top_x_peak_rich:
+        for _filename in config_obj.list_sample_filename:
+            extract_top_x_peak_rich(metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                    output_path='./spectrum_metadata/filtered/sample_metadata.npy',
+                                    filename=_filename,
+                                    num_top_x_peak_rich=config_obj.num_top_x_peak_rich,
+                                    export_tsv=True)
 
     # ------------------------------------------------
     # Add external compound data to reference spectra
@@ -309,6 +322,10 @@ def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None)
                                                        parameters_to_open_file=dict(encoding='utf8', errors='replace'))
 
     report.info(f"\nfiles NOT to be filtered {str(config_obj.list_filename_avoid_filter)}\n")
+
+    # --------------------------
+    # Filter reference spectra
+    # --------------------------
     filter_reference_spectra(config_obj,
                              ref_metadata_path='./spectrum_metadata/raw/ref_metadata.npy',
                              output_path='./spectrum_metadata/filtered/ref_metadata.npy',
@@ -320,23 +337,12 @@ def generate_spectral_network(config_obj: config.SpecNetGenConfig, _logger=None)
     if not check_filtered_metadata('./spectrum_metadata/filtered/ref_metadata.npy'):
         raise ValueError('There is no reference spectrum after filtering.')
 
-    # ------------------------------------
-    # Extract top X peak rich spectra
-    # ------------------------------------
-    if config_obj.num_top_x_peak_rich:
-        for _filename in config_obj.list_sample_filename:
-            extract_top_x_peak_rich(metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
-                                    output_path='./spectrum_metadata/filtered/sample_metadata.npy',
-                                    filename=_filename,
-                                    num_top_x_peak_rich=config_obj.num_top_x_peak_rich,
-                                    export_tsv=True)
-
     # --------------------------------------
     # Group metadata and spectra by dataset
     # --------------------------------------
     grouping_metadata.group_sample_by_dataset(sample_metadata_path='./spectrum_metadata/filtered/sample_metadata.npy',
                                               output_dir='./spectrum_metadata/grouped/sample',
-                                              split_category='tag',
+                                              split_category=config_obj.sample_split_category,
                                               export_tsv=True)
 
     grouping_metadata.group_reference_by_dataset(ref_metadata_path='./spectrum_metadata/filtered/ref_metadata.npy',

@@ -1,5 +1,3 @@
-from glob import glob
-import h5py
 import logging
 from logging import DEBUG, Formatter, getLogger, StreamHandler
 from matchms import Spectrum
@@ -23,8 +21,6 @@ formatter = Formatter('\t'.join(['%(asctime)s', '[%(levelname)s]', '%(name)s(Lin
 handler.setFormatter(formatter)
 LOGGER.addHandler(handler)
 LOGGER.propagate = False
-
-H5PY_STR_TYPE = h5py.special_dtype(vlen=str)
 
 
 def initialize_serialize_spectra_file(dir_path='./serialized_spectra'):

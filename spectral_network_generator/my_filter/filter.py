@@ -350,7 +350,7 @@ def filter_reference_spectra(config_obj, ref_metadata_path, output_path, metacyc
             elif config_obj.ref_split_category == 'cmpd_pathway':
                 keyword_arr = ref_arr['pathway_unique_id_list']
             else:
-                keyword_arr = np.empty()
+                keyword_arr = np.empty(0)
 
             # to select --------------------------------------------------
             mask_select_keyword = _mask_all_true

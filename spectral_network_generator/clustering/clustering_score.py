@@ -14,13 +14,11 @@ LOGGER.addHandler(handler)
 LOGGER.propagate = False
 
 
-def cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_path):
-    # Load clustered score array
-    clustered_score_arr = np.load(clustered_score_path, allow_pickle=True)
+def cluster_grouped_score_based_on_cluster_id_core(score_path, clustered_score_paths):
+    LOGGER.info(f'Cluster {os.path.basename(score_path)}')
+    # Load score array
+    score_arr = np.load(score_path, allow_pickle=True)
 
-    if clustered_score_arr is None:
-        return
-    
     # Filter out scores with cluster_id_a == cluster_id_b ---------------------
     mask_to_filter = score_arr['cluster_id_a'] != score_arr['cluster_id_b']
     if not np.any(mask_to_filter):
@@ -72,55 +70,61 @@ def cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_pa
     # Sort by cluster_id_a and cluster_id_b
     score_arr = score_arr[np.argsort(score_arr, order=['cluster_id_a', 'cluster_id_b'])]
     
-    # Extract scores where score_arr[['cluster_id_a', 'cluster_id_b']] is in clustered_score_arr[['cluster_id_a', 'cluster_id_b']]
-    mask_is_in_clustered = np.isin(score_arr[['cluster_id_a', 'cluster_id_b']],
-                                   clustered_score_arr[['cluster_id_a', 'cluster_id_b']])
-    if not np.any(mask_is_in_clustered):
-        return
+    for clustered_score_path in clustered_score_paths:
+        # Load clustered score array
+        clustered_score_arr = np.load(clustered_score_path, allow_pickle=True)
 
-    score_arr_temp = score_arr[mask_is_in_clustered]
-    _x = score_arr[~mask_is_in_clustered]
-    # ------------------------------------------------------------------------------------------------------------------
+        if clustered_score_arr is None:
+            continue
+        # Extract scores where score_arr[['cluster_id_a', 'cluster_id_b']] is in clustered_score_arr[['cluster_id_a', 'cluster_id_b']]
+        mask_is_in_clustered = np.isin(score_arr[['cluster_id_a', 'cluster_id_b']],
+                                    clustered_score_arr[['cluster_id_a', 'cluster_id_b']])
+        if not np.any(mask_is_in_clustered):
+            continue
 
-    # Extract scores where clustered_score_arr[['cluster_id_a', 'cluster_id_b']] is in score_arr[['cluster_id_a', 'cluster_id_b']]
-    mask_is_in_not_clustered = np.isin(clustered_score_arr[['cluster_id_a', 'cluster_id_b']],
-                                       score_arr_temp[['cluster_id_a', 'cluster_id_b']])
-    if not np.any(mask_is_in_not_clustered):
-        return
+        score_arr_temp = score_arr[mask_is_in_clustered]
+        _x = score_arr[~mask_is_in_clustered]
+        # ------------------------------------------------------------------------------------------------------------------
 
-    clustered_score_arr_temp = clustered_score_arr[mask_is_in_not_clustered]
-    # ------------------------------------------------------------------------------------------------------------------
+        # Extract scores where clustered_score_arr[['cluster_id_a', 'cluster_id_b']] is in score_arr[['cluster_id_a', 'cluster_id_b']]
+        mask_is_in_not_clustered = np.isin(clustered_score_arr[['cluster_id_a', 'cluster_id_b']],
+                                        score_arr_temp[['cluster_id_a', 'cluster_id_b']])
+        if not np.any(mask_is_in_not_clustered):
+            continue
 
-    _test = clustered_score_arr_temp[['cluster_id_a', 'cluster_id_b']]\
-                == score_arr_temp[['cluster_id_a', 'cluster_id_b']]
-    if not np.all(_test):
-        raise ValueError('Order of "cluster_id_a" and "cluster_id_b" must be the same between arrays.')
+        clustered_score_arr_temp = clustered_score_arr[mask_is_in_not_clustered]
+        # ------------------------------------------------------------------------------------------------------------------
 
-    score_arr_temp['index'] = clustered_score_arr_temp['index']
+        _test = clustered_score_arr_temp[['cluster_id_a', 'cluster_id_b']]\
+                    == score_arr_temp[['cluster_id_a', 'cluster_id_b']]
+        if not np.all(_test):
+            raise ValueError('Order of "cluster_id_a" and "cluster_id_b" must be the same between arrays.')
 
-    # Match the order of fields in clustered_score_arr_temp and score_arr_temp.
-    fields = [x for x in clustered_score_arr_temp.dtype.names]
-    score_arr_temp = score_arr_temp[fields]
+        score_arr_temp['index'] = clustered_score_arr_temp['index']
 
-    # Get bool array indicating whether clustered_score_arr_temp['score'] < score_arr_temp['score']
-    mask_score = (clustered_score_arr_temp['score'] < score_arr_temp['score']) \
-                 | ((clustered_score_arr_temp['score'] == score_arr_temp['score'])
-                    & (clustered_score_arr_temp['matches'] <= score_arr_temp['matches']))
+        # Match the order of fields in clustered_score_arr_temp and score_arr_temp.
+        fields = [x for x in clustered_score_arr_temp.dtype.names]
+        score_arr_temp = score_arr_temp[fields]
 
-    if not np.any(mask_score):
-        return
+        # Get bool array indicating whether clustered_score_arr_temp['score'] < score_arr_temp['score']
+        mask_score = (clustered_score_arr_temp['score'] < score_arr_temp['score']) \
+                    | ((clustered_score_arr_temp['score'] == score_arr_temp['score'])
+                        & (clustered_score_arr_temp['matches'] <= score_arr_temp['matches']))
 
-    # Replace clustered_score_arr_temp where clustered_score_arr_temp['score'] < score_arr_temp['score']
-    # with score_arr_temp
-    clustered_score_arr_temp[mask_score] = score_arr_temp[mask_score]
+        if not np.any(mask_score):
+            continue
 
-    # Update clustered_score_arr
-    clustered_score_arr[mask_is_in_not_clustered] = clustered_score_arr_temp
-    clustered_score_folder_name = os.path.basename(os.path.dirname(clustered_score_path))
-    LOGGER.info(f'Update {clustered_score_folder_name}/{os.path.basename(clustered_score_path)}')
-    with open(clustered_score_path, 'wb') as f:
-        np.save(f, clustered_score_arr)
-        f.flush()
+        # Replace clustered_score_arr_temp where clustered_score_arr_temp['score'] < score_arr_temp['score']
+        # with score_arr_temp
+        clustered_score_arr_temp[mask_score] = score_arr_temp[mask_score]
+
+        # Update clustered_score_arr
+        clustered_score_arr[mask_is_in_not_clustered] = clustered_score_arr_temp
+        clustered_score_folder_name = os.path.basename(os.path.dirname(clustered_score_path))
+        LOGGER.info(f'Update {clustered_score_folder_name}/{os.path.basename(clustered_score_path)}')
+        with open(clustered_score_path, 'wb') as f:
+            np.save(f, clustered_score_arr)
+            f.flush()
 
 
 def cluster_grouped_score_based_on_cluster_id(parent_score_dir, parent_clustered_score_dir):
@@ -138,15 +142,4 @@ def cluster_grouped_score_based_on_cluster_id(parent_score_dir, parent_clustered
 
         score_paths = get_paths.get_npy_paths(score_dir_path)
         for score_path in score_paths:
-            # Load score array
-            score_arr = np.load(score_path, allow_pickle=True)
-
-            for clustered_score_path in clustered_score_paths:
-                cluster_grouped_score_based_on_cluster_id_core(score_arr, clustered_score_path)
-
-
-
-
-
-
-
+            cluster_grouped_score_based_on_cluster_id_core(score_path, clustered_score_paths)

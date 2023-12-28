@@ -20,7 +20,7 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
     sample_metadata_path : str
     output_dir : str
     split_category :str
-        'tag' or 'source_filename'
+        '' or 'source_filename'
     dataset_label_prefix : str
         Dataset label is dataset_label_prefix + integer index and is used as filename of grouped metadata file.
     export_tsv : bool
@@ -29,8 +29,11 @@ def group_sample_by_dataset(sample_metadata_path, output_dir, split_category,
     -------
 
     """
-    if split_category not in ('tag', 'source_filename'):
+    if split_category not in ('', 'source_filename'):
         raise ValueError('Unacceptable split key.')
+
+    if split_category == '':
+        split_category = 'tag'
 
     # Load dataset_keyword_list
     dataset_keyword_list = []
@@ -98,7 +101,7 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
     ref_metadata_path : str
     output_dir : str
     split_category : str
-        'tag', 'source_filename', 'cmpd_classification_superclass', 'cmpd_classification_class' or 'cmpd_pathway'
+        '', 'source_filename', 'cmpd_classification_superclass', 'cmpd_classification_class' or 'cmpd_pathway'
     dataset_label_prefix : str
     export_tsv : bool
 
@@ -106,9 +109,12 @@ def group_reference_by_dataset(ref_metadata_path, output_dir, split_category,
     -------
 
     """
-    if split_category not in ('tag', 'source_filename', 'cmpd_classification_superclass', 'cmpd_classification_class',
+    if split_category not in ('', 'source_filename', 'cmpd_classification_superclass', 'cmpd_classification_class',
                               'cmpd_pathway'):
         raise ValueError('Unacceptable split key.')
+
+    if split_category == '':
+        split_category = 'tag'
 
     # Load dataset_keyword_list
     dataset_keyword_list = []

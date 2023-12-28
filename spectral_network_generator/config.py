@@ -41,6 +41,7 @@ class SpecNetGenConfig:
 
         self.list_ref_spec_filename = []
         self.list_ref_spec_path = []
+        self.sample_split_category = ''
         self.ref_split_category = ''
         self.list_ref_select_keyword = []
         self.list_ref_exclude_keyword = []
@@ -300,10 +301,15 @@ def read_config_file(path='./config.ini', _logger=None):
         my_config.calculate_inter_reference = False
 
     _ref_split_category = inifile.get('dataset', 'ref_split_category')
-    if _ref_split_category not in ('', 'cmpd_classification_superclass', 'cmpd_classification_class', 'cmpd_pathway'):
-        raise ValueError('"ref_split_category" must be "cmpd_classification_superclass", "cmpd_classification_class" '
-                         'or "cmpd_pathway".')
+    if _ref_split_category not in ('', 'source_filename','cmpd_classification_superclass', 'cmpd_classification_class', 'cmpd_pathway'):
+        raise ValueError('"ref_split_category" must be "cmpd_classification_superclass", "cmpd_classification_class", '
+                         '"cmpd_pathway", "source_filename" or "".')
     my_config.ref_split_category = _ref_split_category
+
+    _sample_split_category = inifile.get('dataset', 'sample_split_category')
+    if _sample_split_category not in ('', 'source_filename'):
+        raise ValueError('"sample_split_category" must be "" or "source_filename"')
+    my_config.sample_split_category = _sample_split_category
 
     _list_ref_select_keyword = inifile.get('dataset', 'ref_select_keywords').split(';')
     my_config.list_ref_select_keyword = [_key.strip() for _key in _list_ref_select_keyword if _key.strip()]
