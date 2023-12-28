@@ -330,11 +330,12 @@ def load_and_serialize_spectra(spectra_path, dataset_tag, serialized_spectra_dir
 
         # Remove a file containing fewer than length_to_export spectra.
         os.remove(serialized_spectra_path_to_update)
-
-    with open(serialized_spectra_path, 'wb') as f:
-        _spectra = _spectra_old + _spectra
-        pickle.dump(_spectra, f)
-        f.flush()
+    
+    _spectra = _spectra_old + _spectra
+    if _spectra:
+        with open(serialized_spectra_path, 'wb') as f:
+            pickle.dump(_spectra, f)
+            f.flush()
 
     global_index -= 1
     return global_index
