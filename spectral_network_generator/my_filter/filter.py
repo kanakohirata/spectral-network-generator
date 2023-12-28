@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 import re
+import shutil
 from utils import split_array
 
 LOGGER = getLogger(__name__)
@@ -18,12 +19,25 @@ LOGGER.propagate = False
 
 def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadata_path, output_path,
                                              mz_tolerance=0.01, rt_tolerance=0.1, export_tsv=False):
+    # Make output folder if it does not exist.
+    output_dir = os.path.dirname(output_path)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
     if not os.path.isfile(blank_metadata_path):
+        try:
+            shutil.copyfile(sample_metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
         return
 
     # Load blank metadata array
     blank_arr = np.load(blank_metadata_path, allow_pickle=True)
     if not blank_arr.size:
+        try:
+            shutil.copyfile(sample_metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
         return
 
     # Extract blank array where 'precursor_mz' and 'rt_in_sec' are not 0.
@@ -31,17 +45,20 @@ def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadat
     blank_arr = blank_arr[(blank_arr['precursor_mz'] != 0) & (blank_arr['rt_in_sec'] != 0)]
 
     if not blank_arr.size:
+        try:
+            shutil.copyfile(sample_metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
         return
 
     # Load sample metadata array
     sample_arr_all = np.load(sample_metadata_path, allow_pickle=True)
     if not sample_arr_all.size:
+        try:
+            shutil.copyfile(sample_metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
         return
-
-    # Make output folder if it does not exist.
-    output_dir = os.path.dirname(output_path)
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
 
     # If sample_metadata_path == output_path,
     # sample_metadata_path will be updated after outputting to the temp_output_path file.
@@ -97,18 +114,26 @@ def remove_blank_spectra_from_sample_spectra(blank_metadata_path, sample_metadat
 
         # Remove temp_output_path file
         os.remove(temp_output_path)
+    else:
+        with open(output_path, 'wb') as f:
+            np.save(f, np.empty(0))
+            f.flush()
 
 
 def remove_sample_spectra_with_no_precursor_mz(sample_metadata_path, output_path, export_tsv=False):
-    # Load sample metadata array
-    sample_arr_all = np.load(sample_metadata_path, allow_pickle=True)
-    if not sample_arr_all.size:
-        return
-
     # Make output folder if it does not exist.
     output_dir = os.path.dirname(output_path)
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
+
+    # Load sample metadata array
+    sample_arr_all = np.load(sample_metadata_path, allow_pickle=True)
+    if not sample_arr_all.size:
+        try:
+            shutil.copyfile(sample_metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
+        return
 
     # If sample_metadata_path == output_path,
     # sample_metadata_path will be updated after outputting to the temp_output_path file.
@@ -146,6 +171,10 @@ def remove_sample_spectra_with_no_precursor_mz(sample_metadata_path, output_path
 
         # Remove temp_output_path file
         os.remove(temp_output_path)
+    else:
+        with open(output_path, 'wb') as f:
+            np.save(f, np.empty(0))
+            f.flush()
 
 
 def filter_reference_spectra(config_obj, ref_metadata_path, output_path, metacyc_compound_path,
@@ -416,6 +445,10 @@ def filter_reference_spectra(config_obj, ref_metadata_path, output_path, metacyc
 
         # Remove temp_output_path file
         os.remove(temp_output_path)
+    else:
+        with open(output_path, 'wb') as f:
+            np.save(f, np.empty(0))
+            f.flush()
 
 
 def extract_top_x_peak_rich(metadata_path, output_path, filename, num_top_x_peak_rich, export_tsv=False, _logger=None):
@@ -424,13 +457,17 @@ def extract_top_x_peak_rich(metadata_path, output_path, filename, num_top_x_peak
     else:
         logger = LOGGER
 
-    if num_top_x_peak_rich <= 0:
-        return
-
     # Make output folder if it does not exist.
     output_dir = os.path.dirname(output_path)
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
+
+    if num_top_x_peak_rich <= 0:
+        try:
+            shutil.copyfile(metadata_path, output_path)
+        except shutil.SameFileError:
+            pass
+        return
 
     logger.info(f'Extract top {num_top_x_peak_rich} peak rich spectra of {filename}')
 
