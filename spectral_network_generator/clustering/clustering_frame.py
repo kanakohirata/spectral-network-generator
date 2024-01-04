@@ -108,16 +108,17 @@ def _write_cluster_frame_core(dir_output, id_combination_list):
 
         combination_idx += 1
 
-    clustered_score_arr = np.array(clustered_scores, dtype=score_dtype)
-    
-    # Sort by cluster_id_a and cluster_id_b
-    clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr, order=['cluster_id_a', 'cluster_id_b'])]
+    if clustered_scores:
+        clustered_score_arr = np.array(clustered_scores, dtype=score_dtype)
+        
+        # Sort by cluster_id_a and cluster_id_b
+        clustered_score_arr = clustered_score_arr[np.argsort(clustered_score_arr, order=['cluster_id_a', 'cluster_id_b'])]
 
-    clustered_score_path = os.path.join(dir_output, f'{int(combination_idx / 1000000) * 1000000}.npy')
-    # Write cluster frame.
-    with open(clustered_score_path, 'wb') as f:
-        np.save(f, clustered_score_arr)
-        f.flush()
+        clustered_score_path = os.path.join(dir_output, f'{int(combination_idx / 1000000) * 1000000}.npy')
+        # Write cluster frame.
+        with open(clustered_score_path, 'wb') as f:
+            np.save(f, clustered_score_arr)
+            f.flush()
 
 
 def create_cluster_frame_for_grouped_spectra(sample_metadata_dir,

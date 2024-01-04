@@ -11,7 +11,7 @@ def split_array(arr, row_size):
         Divided array with 'row_size' rows,  start and end indexes.
     """
     if arr.shape[0] <= row_size:
-        yield arr, 0, arr.shape[0] - 1
+        yield arr, 0, arr.shape[0]
 
     else:
         chunk_num = arr.shape[0] // row_size
@@ -22,6 +22,7 @@ def split_array(arr, row_size):
             yield split_arr, start_index, end_index
 
         remainder = arr.shape[0] % row_size
-        start_index = arr.shape[0] - remainder
-        split_arr = arr[start_index:]
-        yield split_arr, start_index, arr.shape[0] - 1
+        if remainder:
+            start_index = arr.shape[0] - remainder
+            split_arr = arr[start_index:]
+            yield split_arr, start_index, arr.shape[0]
